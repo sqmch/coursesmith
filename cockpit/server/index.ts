@@ -46,8 +46,12 @@ app.get("/api/course", (_req, res) => {
     };
     const progress = readJson(progressPath) ?? { modules: {}, currentModule: null };
 
-    const modules = fs
-      .readdirSync(curriculumDir, { withFileTypes: true })
+    // no curriculum/ at all = a fresh clone before onboarding — an empty course,
+    // not an error (the UI greets and points at "new course")
+    const moduleDirs = fs.existsSync(curriculumDir)
+      ? fs.readdirSync(curriculumDir, { withFileTypes: true })
+      : [];
+    const modules = moduleDirs
       .filter((d) => d.isDirectory())
       .map((d) => {
         const manifestPath = path.join(curriculumDir, d.name, "module.json");
