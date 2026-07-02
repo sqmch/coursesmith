@@ -48,4 +48,23 @@ pretend to be it.
    stuck; they unseal one level at a time.
 
 Everything the tutor knows about you lives in `tutor/` and `curriculum/` in this repo —
-plain markdown and JSON, yours to read, version, and delete.
+plain markdown and JSON, yours to read, version, and delete. Your course grows *inside your
+clone*; this repo is both the engine and your instance.
+
+## The cockpit — the way you'll actually want to work
+
+A local web shell around the same files (nothing runs in a cloud; it owns zero state):
+
+```
+cd cockpit && npm install && npm run dev     →  http://localhost:5173
+```
+
+- **Course rail** — your modules, progress, and current position
+- **Typeset doc pane** — lessons, briefs, and quizzes, readable like a book
+- **Embedded terminal** — a real PTY in your course repo, with quick actions
+  (launch your agent · start session · run the current module's checks)
+- **◇ math lab** — interactive visualizations wired to the current module's lesson
+  (a registry of labs; the tutor configures them per module via `lab.json`)
+
+The cockpit serves whichever repo holds your course: by default this one (the clone-and-go
+case); point it elsewhere with `--repo <path>` or the `HARNESS_REPO` env var.
