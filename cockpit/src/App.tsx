@@ -97,7 +97,29 @@ export default function App() {
         <p>Couldn't reach the course server.</p>
         <pre>{error}</pre>
         <p className="hint-line">
-          Is it running? <code>cd cockpit &amp;&amp; npm run dev</code>
+          Is it running? <code>cd cockpit &amp;&amp; npm run dev</code> — and check its terminal
+          output: if port 7331 was busy, it says so and exits.
+        </p>
+      </div>
+    );
+  }
+
+  // the repo is being served but holds no course yet — greet, don't show empty panes
+  if (course && course.modules.length === 0) {
+    return (
+      <div className="boot-error">
+        <h1>cockpit</h1>
+        <p>
+          No course lives in <code>{course.repoRoot}</code> yet.
+        </p>
+        <p className="hint-line">
+          Open this repo in your agent (e.g. <code>claude</code>) and say{" "}
+          <strong>“new course”</strong> — it will interview you, draft your course arc for
+          review, and build your first module. Then reload this page.
+        </p>
+        <p className="hint-line">
+          Already have a course elsewhere? Point me at it:{" "}
+          <code>HARNESS_REPO=&lt;path&gt;</code> or <code>--repo &lt;path&gt;</code>.
         </p>
       </div>
     );

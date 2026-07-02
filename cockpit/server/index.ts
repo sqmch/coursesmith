@@ -153,6 +153,22 @@ wss.on("connection", (ws) => {
 });
 wss.on("error", (err) => console.error(`[cockpit] wss error: ${err}`));
 
+// fail LOUDLY on a busy port — dying quietly here leaves vite serving a UI
+// with no API behind it, which reads as "is it running?" in the browser
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `\n[cockpit] ERROR: port ${PORT} is already in use — another cockpit (or a stale ` +
+        `node process from an earlier run) is holding it.\n[cockpit] Close the other one, ` +
+        `or on Windows:  Get-NetTCPConnection -LocalPort ${PORT} -State Listen | ` +
+        `%% { Stop-Process -Id $_.OwningProcess -Force }\n`,
+    );
+  } else {
+    console.error(`[cockpit] server error: ${err}`);
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[cockpit] serving repo ${REPO_ROOT}`);
   console.log(`[cockpit] api+term on http://127.0.0.1:${PORT}`);
