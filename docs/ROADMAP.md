@@ -11,10 +11,13 @@ source course completes its final phase.
       generation with sealed-reference QA, check-design rules, hint escalation contract
 - [x] File formats documented from reality (`docs/FORMAT.md`)
 - [x] `templates/` for a fresh instance's `tutor/` state
-- [x] **Cockpit** (moved here 2026-07-03; the single copy — the source course consumes it):
-      course rail, typeset doc pane, embedded PTY terminal, math-lab registry with two live
-      labs (Vectors & Similarity, Chunking & Overlap). Serves its own repo by default,
-      `--repo`/`HARNESS_REPO` for external course repos. Lab plan: `cockpit/LAB.md`
+- [x] **Study** (the web shell; moved here and renamed from "cockpit" 2026-07-03; the single
+      copy — the source course consumes it): course rail, typeset doc pane, embedded PTY
+      terminal, math-lab registry with two live labs (Vectors & Similarity, Chunking &
+      Overlap). Serves its own repo by default, `--repo`/`HARNESS_REPO` for external course
+      repos. Lab plan: `study/LAB.md`
+- [x] Root `package.json` entry point (`npm install` + `npm run dev`, cross-platform, no
+      launcher scripts) and `npm run update` (pulls engine updates from upstream/origin)
 
 ## v0.x — while the source course runs (continuous)
 
@@ -29,10 +32,12 @@ source course completes its final phase.
 - [ ] **Example course pack**: the completed AI-engineering course (content only — no learner
       data) as the bundled proof and reference implementation
 - [ ] New labs land with the source course's modules (Top-k Retrieval, Precision & Recall are
-      registered as planned; see `cockpit/src/lab/registry.ts`)
+      registered as planned; see `study/src/lab/registry.ts`)
 - [ ] Onboarding polish: the interview → spine → review flow hardened against learners other
       than learner #1
-- [ ] Install UX (`npx`-style bootstrap or template repo), license, public launch
+- [ ] Install UX (`npx`-style bootstrap: named clone + remotes wired for updates — NOT a
+      GitHub template repo, which severs history and breaks `git pull` updates), license,
+      public launch
 - [ ] Tutor eval harness: grade tutoring transcripts, regression-test protocol changes
       (built by learner #1 as their capstone — the protocol's only owned quality lever)
 

@@ -48,7 +48,7 @@ export default function App() {
 
   // while the repo has no course, poll — the page flips into the course view
   // the moment onboarding (in the embedded terminal) writes the first module,
-  // without the learner ever leaving the cockpit
+  // without the learner ever leaving the study
   const isEmpty = course != null && course.modules.length === 0;
   useEffect(() => {
     if (!isEmpty) return;
@@ -101,15 +101,25 @@ export default function App() {
   const done = course?.modules.filter((m) => m.status === "complete").length ?? 0;
   const total = course?.modules.length ?? 0;
 
+  // the instance's folder name IS the course's name (clones are named after
+  // their course) — brand the shell with it instead of any hardcoded course
+  const repoName = useMemo(
+    () => course?.repoRoot.split(/[\\/]/).filter(Boolean).pop() ?? null,
+    [course],
+  );
+  useEffect(() => {
+    if (repoName) document.title = `${repoName} — study`;
+  }, [repoName]);
+
   if (error) {
     return (
       <div className="boot-error">
-        <h1>cockpit</h1>
+        <h1>study</h1>
         <p>Couldn't reach the course server.</p>
         <pre>{error}</pre>
         <p className="hint-line">
-          Is it running? <code>cd cockpit &amp;&amp; npm run dev</code> — and check its terminal
-          output: if port 7331 was busy, it says so and exits.
+          Is it running? <code>npm run dev</code> from the repo root — and check its terminal
+          output: if the API port was busy, it says so and exits.
         </p>
       </div>
     );
@@ -120,8 +130,8 @@ export default function App() {
     <div className="shell">
       <header className="topbar">
         <div className="wordmark">
-          fund<span className="brass">AI</span>mentals
-          <span className="wordmark-sub">/ cockpit</span>
+          {repoName ?? "study"}
+          {repoName && <span className="wordmark-sub">/ study</span>}
         </div>
         <div className="topbar-right">
           <button

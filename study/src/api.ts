@@ -37,6 +37,8 @@ export interface ModuleInfo {
   id: string;
   title: string;
   phase: number;
+  /** Optional display name for the phase (from module.json); rail falls back to "Phase N". */
+  phaseName?: string;
   prerequisites: string[];
   runtime: string;
   estimatedHours: number;
@@ -67,11 +69,3 @@ export async function fetchFile(path: string): Promise<string> {
   const data = await res.json();
   return data.content as string;
 }
-
-export const PHASE_NAMES: Record<number, string> = {
-  0: "Orientation",
-  1: "Retrieval — RAG",
-  2: "Agents & Harnesses",
-  3: "Eval Harnesses",
-  4: "Capstone",
-};

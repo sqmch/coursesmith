@@ -25,7 +25,7 @@ export function WelcomePane(props: { repoRoot: string }) {
           </li>
           <li>
             <b>That's it.</b> This page turns into your course the moment module 00 exists,
-            and every session after starts the same way: open the cockpit, say
+            and every session after starts the same way: open the study, say
             “start session”.
           </li>
         </ol>

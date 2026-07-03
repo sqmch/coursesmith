@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PHASE_NAMES, type ModuleInfo } from "../api";
+import { type ModuleInfo } from "../api";
 
 export function Rail(props: {
   modules: ModuleInfo[];
@@ -25,7 +25,7 @@ export function Rail(props: {
         <section className="phase" key={phase}>
           <div className="phase-label">
             <span className="phase-num">{String(phase).padStart(2, "0")}</span>
-            {PHASE_NAMES[phase] ?? `Phase ${phase}`}
+            {mods.find((m) => m.phaseName)?.phaseName ?? `Phase ${phase}`}
           </div>
           <div className="phase-track">
             {mods.map((m) => {

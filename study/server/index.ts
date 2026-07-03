@@ -8,7 +8,7 @@ import { spawn } from "@lydell/node-pty";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Which repo holds the course? Default: the repo this cockpit lives in — the
+// Which repo holds the course? Default: the repo this study lives in — the
 // clone-and-go case, where the learner's course grows inside their harness
 // clone. Overridable for external course repos (e.g. an instance that predates
 // the engine): `--repo <path>` or the HARNESS_REPO env var.
@@ -19,14 +19,16 @@ function resolveRepoRoot(): string {
   const root = path.resolve(chosen);
   if (!fs.existsSync(path.join(root, "curriculum"))) {
     console.warn(
-      `[cockpit] no curriculum/ under ${root} — serving anyway (say "new course" to your ` +
+      `[study] no curriculum/ under ${root} — serving anyway (say "new course" to your ` +
         `agent to onboard, or point me at a course repo with --repo <path> / HARNESS_REPO)`,
     );
   }
   return root;
 }
 const REPO_ROOT = resolveRepoRoot();
-const PORT = 7331;
+// Overridable so two courses (two clones) can run side by side; vite.config.ts
+// reads the same variable, so one `PORT=7332 npm run dev` moves both ends.
+const PORT = Number(process.env.PORT || 7331);
 
 const app = express();
 
@@ -40,7 +42,7 @@ app.get("/api/course", (_req, res) => {
       try {
         return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : null;
       } catch (err) {
-        console.warn(`[cockpit] malformed JSON ignored: ${p} (${err})`);
+        console.warn(`[study] malformed JSON ignored: ${p} (${err})`);
         return null;
       }
     };
@@ -151,29 +153,30 @@ wss.on("connection", (ws) => {
   // an unhandled 'error' (e.g. ECONNRESET from an abruptly killed tab) would
   // crash the whole server, taking every terminal down with it
   ws.on("error", (err) => {
-    console.warn(`[cockpit] terminal ws error: ${err}`);
+    console.warn(`[study] terminal ws error: ${err}`);
     pty.kill();
   });
 });
-wss.on("error", (err) => console.error(`[cockpit] wss error: ${err}`));
+wss.on("error", (err) => console.error(`[study] wss error: ${err}`));
 
 // fail LOUDLY on a busy port — dying quietly here leaves vite serving a UI
 // with no API behind it, which reads as "is it running?" in the browser
 server.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
     console.error(
-      `\n[cockpit] ERROR: port ${PORT} is already in use — another cockpit (or a stale ` +
-        `node process from an earlier run) is holding it.\n[cockpit] Close the other one, ` +
-        `or on Windows:  Get-NetTCPConnection -LocalPort ${PORT} -State Listen | ` +
+      `\n[study] ERROR: port ${PORT} is already in use — another study (or a stale ` +
+        `node process from an earlier run) is holding it.\n[study] Close the other one, ` +
+        `run this one on its own port (PORT=${PORT + 1} npm run dev), or on Windows: ` +
+        `Get-NetTCPConnection -LocalPort ${PORT} -State Listen | ` +
         `%% { Stop-Process -Id $_.OwningProcess -Force }\n`,
     );
   } else {
-    console.error(`[cockpit] server error: ${err}`);
+    console.error(`[study] server error: ${err}`);
   }
   process.exit(1);
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`[cockpit] serving repo ${REPO_ROOT}`);
-  console.log(`[cockpit] api+term on http://127.0.0.1:${PORT}`);
+  console.log(`[study] serving repo ${REPO_ROOT}`);
+  console.log(`[study] api+term on http://127.0.0.1:${PORT}`);
 });

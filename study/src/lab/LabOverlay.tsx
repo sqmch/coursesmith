@@ -76,7 +76,7 @@ export function LabOverlay(props: {
           })}
           <div className="lab-rail-foot">
             Each lab ties to a module. New ones plug in as the course grows — see{" "}
-            <code>cockpit/LAB.md</code>.
+            <code>study/LAB.md</code>.
           </div>
         </nav>
 

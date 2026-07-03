@@ -1,7 +1,7 @@
 # File formats (v0 — documented from reality, subject to change until the source course completes)
 
 These formats are the de facto schema extracted from the first live course. They are what the
-tutor protocol reads/writes and what any UI (the cockpit, when it ports) renders.
+tutor protocol reads/writes and what the study (the bundled UI) renders.
 
 ## Repository layout
 
@@ -17,7 +17,7 @@ curriculum/
     checks/          ← automated tests, run by the learner
     hints/           ← hint-1.md (nudge), hint-2.md (approach), hint-3.md (near-spoiler)
     quiz.md          ← 4–8 retrieval questions
-    lab.json         ← optional: config for an interactive visualization (cockpit lab)
+    lab.json         ← optional: config for an interactive visualization (study lab)
 tutor/
   progress.json      ← module status, hint usage, check attempts, tutor notes
   quiz-bank.json     ← spaced-repetition items with intervals, due dates, history
@@ -31,6 +31,9 @@ tutor/
   "id": "02-vector-store",          // = directory name
   "title": "A Vector Store from Scratch",
   "phase": 1,
+  "phaseName": "Retrieval — RAG",   // optional: display name for the phase in the study's
+                                    // course rail (any module in the phase may carry it;
+                                    // absent everywhere → "Phase N")
   "prerequisites": ["01-embeddings"],
   "runtime": "node",                // what the scaffold needs to run
   "estimatedHours": 4,
@@ -94,8 +97,8 @@ at every session open.
 
 ## lab.json (optional, per module)
 
-Config for an interactive visualization in the cockpit UI (ports here when stable). Shape is
-lab-specific; common envelope:
+Config for an interactive visualization in the study UI. Shape is lab-specific; common
+envelope:
 
 ```jsonc
 {

@@ -1,13 +1,13 @@
 # Math Lab — visual intuition, wired to the course
 
-A small interactive playground inside the cockpit for **feeling** the math the course leans on,
+A small interactive playground inside the study for **feeling** the math the course leans on,
 built for a learner who doesn't read notation. Two labs are live — **Vectors & Similarity**
 (dot product, magnitude, normalization, cosine, euclidean distance; shipped with `01-embeddings`)
 and **Chunking & Overlap** (boundary-straddle, overlap rescue, the duplicated-token cost;
 shipped with `02-vector-store`). The frame is deliberately a *registry of labs* so the next
 topic that benefits from a picture plugs into the same shell.
 
-Launch: the **`◇ math lab`** button in the cockpit topbar → full-screen overlay → `esc` closes.
+Launch: the **`◇ math lab`** button in the study topbar → full-screen overlay → `esc` closes.
 
 ## Why this exists
 
@@ -30,24 +30,24 @@ guard for the same reason content/architecture work is: it serves the current mo
   identically with the lab closed or deleted.
 - **Never disrupts the session.** The overlay renders *on top* of a still-mounted workspace, so
   the PTY terminal and course selection survive open/close untouched.
-- **Additive & monochrome.** Reuses the cockpit's `:root` tokens (IBM Plex, grayscale, thin
+- **Additive & monochrome.** Reuses the study's `:root` tokens (IBM Plex, grayscale, thin
   lines) — no color, no new dependencies, hand-rolled SVG. Everything lab-specific lives under
   `src/lab/`; the only edits outside it are a topbar button + `.lab-launch` style.
 
 ## Anatomy
 
 ```
-cockpit/src/lab/
+study/src/lab/
   registry.ts                 ← the extensibility seam: LabDef[] + current-topic resolver
   LabOverlay.tsx              ← full-screen shell: lab rail + main pane + esc-to-close
-  lab.css                     ← styles, all reusing the cockpit tokens
+  lab.css                     ← styles, all reusing the study tokens
   vec.ts                      ← 2-D vector helpers (the lab's plumbing — see note below)
   labs/
     VectorSimilarityLab.tsx   ← lab #1 (live)
     ChunkingOverlapLab.tsx    ← lab #2 (live, built with module 02)
 ```
 
-Wiring into the cockpit (the whole footprint):
+Wiring into the study (the whole footprint):
 - `App.tsx` — a `labOpen` flag, the topbar button, and an always-mounted `<LabOverlay open=…/>`
   (hidden when closed) that's handed the current module's `lab` config.
 - `styles.css` — `.topbar-right` flex + `.lab-launch` button.
@@ -174,7 +174,7 @@ built to make the *dot product* click for someone who doesn't read notation:
   what the current geometry is doing.
 
 New deps are fair game if a future lab needs them (the user has okayed this); lab #1 stays
-hand-rolled SVG to match the cockpit exactly.
+hand-rolled SVG to match the study exactly.
 
 Persistent footnote: it's 2-D so you can see it; real embeddings carry 384 numbers; the math —
 and the intuition — is identical.
@@ -187,7 +187,7 @@ lab's `vec.ts` contains `dot`/`mag`/`cosine`/etc., but it is **not** a drop-in f
 runs over arbitrary-length embeddings — a different signature and shape. The formula itself is
 already printed in `01-embeddings/LESSON.md §3`; the lab teaches the *intuition* behind it, and
 the learner still writes (and gets checks to pass on) their own array implementation. The lab is
-cockpit app code — the "generic-dev" layer the tutor builds — not curriculum.
+study app code — the "generic-dev" layer the tutor builds — not curriculum.
 
 ## Scope & provenance
 

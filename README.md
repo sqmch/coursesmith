@@ -38,40 +38,62 @@ pretend to be it.
 
 ## How to use it (v0)
 
-1. Clone this repo.
-2. Fire up the cockpit: `.\cockpit.ps1` (Windows) or `cd cockpit && npm install && npm run
-   dev`, then open **http://localhost:5173**.
+1. Clone this repo **into a folder named after your course** — one clone per course:
+
+   ```
+   git clone https://github.com/sqmch/learning-harness learn-rust
+   cd learn-rust
+   ```
+
+2. `npm install`, then `npm run dev` (any OS), and open **http://localhost:5173**.
 3. You land on the welcome screen with a live terminal beside it. Click **launch claude**,
    then **new course** — the tutor interviews you (topic, goals, background, hours/week,
    what "done" looks like), drafts your course arc, and asks you to review it before
    building anything. The page becomes your course the moment your first module exists.
-4. Every sitting after that: open the cockpit, click **start session**. The tutor runs your
+4. Every sitting after that: open the study, click **start session**. The tutor runs your
    due recall quiz, teaches, hands you the next build task, and updates your files at close.
 5. Run checks yourself (the **run checks** button, or `npm run check` inside a module's
    scaffold). Ask for hints when stuck; they unseal one level at a time.
 
-Prefer a bare terminal? Everything works without the cockpit too — open the repo in your
+Prefer a bare terminal? Everything works without the study too — open the repo in your
 agent and say "new course" / "start session"; the UI is a lens, not a dependency.
 
 Everything the tutor knows about you lives in `tutor/` and `curriculum/` in this repo —
 plain markdown and JSON, yours to read, version, and delete. Your course grows *inside your
 clone*; this repo is both the engine and your instance.
 
-## Your copy vs. this repo
+## Your copy vs. the canvas
 
-The published repo is the **empty canvas** — nobody's course lives upstream. Your clone (or
-"Use this template" copy) is **your instance**: the course files the tutor creates
-(`COURSE.md`, `curriculum/`, `tutor/`) occupy paths the engine never ships, so they're yours
-to commit — the tutor commits at every session close, making your learning history part of
-your repo's history. Because engine paths and course paths are disjoint, **`git pull` brings
-you engine updates** (cockpit fixes, protocol improvements) without touching your course.
+The published repo is the **empty canvas** — nobody's course lives upstream. Your clone is
+**your instance**: the course files the tutor creates (`COURSE.md`, `curriculum/`, `tutor/`)
+occupy paths the engine never ships, so they're yours to commit — the tutor commits at every
+session close, making your learning history part of your repo's history.
 
-## The cockpit — the way you'll actually want to work
+**Getting engine updates.** Because engine paths and course paths are disjoint, pulling from
+the canvas brings you engine improvements (study fixes, protocol changes) without ever
+touching your course. `npm run update` does it for you — or `git pull` by hand.
+
+**Backing your course up to your own GitHub.** Clone (don't use GitHub's "Use this template"
+— template copies sever the git history that updates flow through), then repoint the remotes:
+
+```
+git remote rename origin upstream          # the canvas — engine updates come from here
+git remote add origin <your-empty-repo>    # your course history goes here
+git push -u origin master
+```
+
+`npm run update` finds `upstream` automatically from then on.
+
+**Multiple courses** are simply multiple clones, each named after its course. They're fully
+independent — separate git histories, separate tutors, separate sessions. To run two studies
+at once, give the second a port: `PORT=7332 npm run dev`.
+
+## The study — the way you'll actually want to work
 
 A local web shell around the same files (nothing runs in a cloud; it owns zero state):
 
 ```
-cd cockpit && npm install && npm run dev     →  http://localhost:5173
+npm install && npm run dev     →  http://localhost:5173
 ```
 
 - **Course rail** — your modules, progress, and current position
@@ -81,5 +103,5 @@ cd cockpit && npm install && npm run dev     →  http://localhost:5173
 - **◇ math lab** — interactive visualizations wired to the current module's lesson
   (a registry of labs; the tutor configures them per module via `lab.json`)
 
-The cockpit serves whichever repo holds your course: by default this one (the clone-and-go
+The study serves whichever repo holds your course: by default this one (the clone-and-go
 case); point it elsewhere with `--repo <path>` or the `HARNESS_REPO` env var.
