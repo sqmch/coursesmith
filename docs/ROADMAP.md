@@ -24,8 +24,12 @@ source course completes its final phase.
 
 ## v0.x — while the source course runs (continuous)
 
-- [ ] Port each new hard-won rule as it's earned (source repo's `GENERALIZATION.md` is the
-      queue; source stays the source of truth, this repo receives)
+- [x] ~~Port each new hard-won rule as it's earned~~ **Superseded 2026-07-03:** the source
+      course converted in place into a proper instance (engine merged in, its course rules
+      now in its `COURSE.md`). This repo is the single source of truth for the protocol;
+      rules earned in source-course sessions are applied here first and pulled down like any
+      instance update. The old porting queue (source repo's `GENERALIZATION.md`) is closed.
+- [ ] Keep earning rules from live sessions — they land here directly now
 - [ ] Formats stabilize as the source course's later phases (agents, evals) stress them —
       expect additions: agent-module scaffolds, run traces, boss-check records, eval modules'
       interaction with the quiz bank
