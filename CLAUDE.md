@@ -58,6 +58,11 @@ When the learner says "start session" (or similar):
    wrong → `interval = 1`; set new `due`; log in `history`. **History entries only for items
    actually asked** — bookkeeping fixes get `result: "rescheduled"`, never a fake grade.
 3. State where we are in one sentence, then continue the current module.
+   **Resuming instead:** if the learner says "resume session" (the study's button types
+   this when it finds a fresh interrupted conversation) or the conversation itself resumes
+   mid-session, don't re-run the session open — reconstruct where things stood from
+   `progress.json` and the last journal entry, say so in one line, and continue. If the
+   previous session actually closed cleanly, say that and open a new session normally.
 4. **Teach before task — always.** Never point the learner at a brief and say "go." For each
    new work block: deliver a mini-lesson in conversation (the concept, *why it's shaped that
    way*, and a fully worked example that parallels — but is not — the task), then ask 1–2

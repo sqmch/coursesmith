@@ -11,13 +11,26 @@ export interface ToolChoice {
   id: string;
   label: string;
   command: string;
+  /**
+   * How to launch this agent with an opening message already submitted
+   * ("{cmd}" / "{prompt}" placeholders). Default: `{cmd} "{prompt}"` — works
+   * for claude and codex; agents with different flags override it.
+   */
+  promptTemplate?: string;
 }
 
 export const AGENTS: ToolChoice[] = [
   { id: "claude", label: "claude", command: "claude" },
   { id: "codex", label: "codex", command: "codex" },
-  { id: "gemini", label: "gemini", command: "gemini" },
+  // gemini's bare positional prompt runs one-shot; -i keeps it interactive
+  { id: "gemini", label: "gemini", command: "gemini", promptTemplate: '{cmd} -i "{prompt}"' },
 ];
+
+/** The shell command that launches `tool` with `prompt` as its first message. */
+export function launchWithPrompt(tool: ToolChoice, prompt: string): string {
+  const tpl = tool.promptTemplate ?? '{cmd} "{prompt}"';
+  return tpl.replace("{cmd}", tool.command).replace("{prompt}", prompt);
+}
 
 export const EDITORS: ToolChoice[] = [
   { id: "code", label: "VS Code", command: "code" },

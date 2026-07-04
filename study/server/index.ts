@@ -1,6 +1,8 @@
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { WebSocketServer } from "ws";
@@ -135,6 +137,138 @@ app.get("/visual/:moduleId/:file", (req, res) => {
   res.send(fs.readFileSync(abs, "utf8"));
 });
 
+// ---------- PTY state: what's running inside the learner's terminal ----------
+// The quick-action buttons must never type into the wrong program. Before
+// acting, the client asks (over the ws that owns the PTY) what state the
+// shell is in: "idle" (safe to launch), "agent" (the tutor CLI is running),
+// or "busy" (something else — refuse). Detection walks the shell's process
+// tree. The failure mode is deliberate: a misread degrades to "busy"/
+// "unknown", i.e. to refusal or an unsubmitted paste — never to typing into
+// the wrong program.
+
+interface ProcRow {
+  pid: number;
+  ppid: number;
+  cmd: string;
+}
+
+function listProcesses(): Promise<ProcRow[]> {
+  return new Promise((resolve) => {
+    if (process.platform === "win32") {
+      execFile(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress",
+        ],
+        { maxBuffer: 32 * 1024 * 1024, timeout: 8000, windowsHide: true },
+        (err, stdout) => {
+          if (err) return resolve([]);
+          try {
+            const raw = JSON.parse(stdout);
+            const arr = Array.isArray(raw) ? raw : [raw];
+            resolve(
+              arr.map((p: any) => ({
+                pid: Number(p.ProcessId),
+                ppid: Number(p.ParentProcessId),
+                cmd: String(p.CommandLine ?? p.Name ?? ""),
+              })),
+            );
+          } catch {
+            resolve([]);
+          }
+        },
+      );
+    } else {
+      execFile(
+        "ps",
+        ["-eo", "pid=,ppid=,args="],
+        { maxBuffer: 8 * 1024 * 1024, timeout: 8000 },
+        (err, stdout) => {
+          if (err) return resolve([]);
+          resolve(
+            stdout.split("\n").flatMap((line) => {
+              const m = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
+              return m ? [{ pid: +m[1], ppid: +m[2], cmd: m[3] }] : [];
+            }),
+          );
+        },
+      );
+    }
+  });
+}
+
+// ConPTY console hosts appear inside the tree but are not learner programs
+const NOISE_STEMS = new Set(["conhost", "openconsole"]);
+
+/** "C:\...\claude.CMD" → "claude"; "node" → "node" */
+const tokenStem = (token: string) => {
+  const base = token.replace(/["']/g, "").split(/[\\/]/).pop() ?? "";
+  return base.replace(/\.[a-zA-Z0-9]+$/, "").toLowerCase();
+};
+
+async function classifyPty(
+  ptyPid: number,
+  agentCmd: string,
+): Promise<"idle" | "agent" | "busy" | "unknown"> {
+  const rows = await listProcesses();
+  if (rows.length === 0) return "unknown";
+  const byParent = new Map<number, ProcRow[]>();
+  for (const r of rows) {
+    if (!byParent.has(r.ppid)) byParent.set(r.ppid, []);
+    byParent.get(r.ppid)!.push(r);
+  }
+  const descendants: ProcRow[] = [];
+  const queue = [ptyPid];
+  while (queue.length) {
+    for (const child of byParent.get(queue.shift()!) ?? []) {
+      descendants.push(child);
+      queue.push(child.pid);
+    }
+  }
+  const real = descendants.filter((d) => !NOISE_STEMS.has(tokenStem(d.cmd.split(/\s+/)[0] ?? "")));
+  if (real.length === 0) return "idle";
+  // agent match: some token of some descendant's command line has the agent's
+  // name as its exact file stem ("claude.cmd" yes, "claude-notes.md" no)
+  const agentStem = tokenStem(agentCmd.trim().split(/\s+/)[0] ?? "");
+  const isAgent =
+    agentStem !== "" &&
+    real.some((d) => d.cmd.split(/\s+/).some((t) => tokenStem(t) === agentStem));
+  return isAgent ? "agent" : "busy";
+}
+
+// ---------- resume probe: a fresh claude conversation for this repo? ----------
+// claude stores transcripts per working directory under
+// ~/.claude/projects/<cwd with every non-alphanumeric char replaced by "-">,
+// so this is directory-scoped: resuming can never pull in another project's
+// conversation. Other agents don't get a probe (codex's resume --last is
+// global, which would risk exactly that).
+const RESUME_FRESH_HOURS = 12;
+app.get("/api/resume", (_req, res) => {
+  try {
+    const munged = REPO_ROOT.replace(/[^a-zA-Z0-9]/g, "-");
+    const dir = path.join(os.homedir(), ".claude", "projects", munged);
+    let newest = 0;
+    if (fs.existsSync(dir)) {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith(".jsonl")) continue;
+        const t = fs.statSync(path.join(dir, f)).mtimeMs;
+        if (t > newest) newest = t;
+      }
+    }
+    if (!newest) {
+      res.json({ fresh: false, ageMinutes: null });
+      return;
+    }
+    const ageMinutes = Math.round((Date.now() - newest) / 60000);
+    res.json({ fresh: ageMinutes <= RESUME_FRESH_HOURS * 60, ageMinutes });
+  } catch (err) {
+    res.json({ fresh: false, ageMinutes: null, error: String(err) });
+  }
+});
+
 // ---------- static (production build, if present) ----------
 const dist = path.join(__dirname, "..", "dist");
 if (fs.existsSync(dist)) {
@@ -162,8 +296,10 @@ wss.on("connection", (ws) => {
     env: process.env as Record<string, string>,
   });
 
+  // PTY output travels as BINARY frames; control messages (agent-state) as
+  // text frames — so terminal bytes can never be mistaken for protocol JSON
   pty.onData((data) => {
-    if (ws.readyState === ws.OPEN) ws.send(data);
+    if (ws.readyState === ws.OPEN) ws.send(Buffer.from(data, "utf8"));
   });
   pty.onExit(() => ws.close());
 
@@ -172,6 +308,13 @@ wss.on("connection", (ws) => {
       const msg = JSON.parse(raw.toString());
       if (msg.type === "input") pty.write(msg.data);
       else if (msg.type === "resize") pty.resize(msg.cols, msg.rows);
+      else if (msg.type === "agent-state") {
+        classifyPty(pty.pid, String(msg.agentCmd ?? "")).then((state) => {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "agent-state", id: msg.id, state }));
+          }
+        });
+      }
     } catch {
       /* ignore malformed frames */
     }

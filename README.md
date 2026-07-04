@@ -39,15 +39,19 @@ npm install
 npm run dev          # → http://localhost:5173
 ```
 
-In the UI: click **launch** (starts your agent in the embedded terminal — `claude` by
-default; the ⚙ picker switches it to `codex` or any other CLI), then **new course**. The
-tutor interviews you — topic, goals, background, hours per week — drafts a course arc, and
-asks you to review it before building anything. When module 00 exists, the page becomes
-your course.
+In the UI: click **new course** — it starts your agent in the embedded terminal with the
+onboarding opener already sent (`claude` by default; the ⚙ picker switches it to `codex`
+or any other CLI). The tutor interviews you — topic, goals, background, hours per week —
+drafts a course arc, and asks you to review it before building anything. When module 00
+exists, the page becomes your course.
 
 ## A session, day to day
 
-1. `npm run dev`, click **start session**.
+1. `npm run dev`, click **start session**. It does the right thing for the state you're
+   in: starts your agent with the opener already sent, relabels itself **resume session**
+   when a fresh interrupted conversation exists (claude's conversations are per-directory,
+   so it can never resume the wrong project's), types the opener in if the tutor is
+   already running — and refuses, with a note, if something else is using the terminal.
 2. The tutor quizzes you on what's due, teaches the next concept, hands you the build task.
 3. You write code in your own editor (**edit** opens it) and run the module's checks
    (**run checks**, or `npm run check` inside the module's scaffold).

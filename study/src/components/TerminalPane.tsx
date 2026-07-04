@@ -1,8 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { AGENTS, EDITORS, resolveTool, usePrefs, type Prefs, type ToolChoice } from "../prefs";
+import {
+  AGENTS,
+  EDITORS,
+  launchWithPrompt,
+  resolveTool,
+  usePrefs,
+  type Prefs,
+  type ToolChoice,
+} from "../prefs";
+
+/**
+ * Quick actions are STATE-AWARE: before touching the terminal they ask the
+ * server what's running inside the PTY (idle / agent / busy / unknown) and
+ * do the only safe thing for that state. The design rule: a wrong guess must
+ * degrade to a refusal or an unsubmitted paste — never to keystrokes landing
+ * in the wrong program.
+ */
+type PtyState = "idle" | "agent" | "busy" | "unknown";
 
 export function TerminalPane(props: {
   repoRoot: string;
@@ -13,6 +30,12 @@ export function TerminalPane(props: {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const pendingRef = useRef(new Map<number, (state: PtyState) => void>());
+  const reqIdRef = useRef(0);
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
+  const [resumeFresh, setResumeFresh] = useState(false);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -37,12 +60,25 @@ export function TerminalPane(props: {
 
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/term`);
+    ws.binaryType = "arraybuffer";
     wsRef.current = ws;
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
     };
-    ws.onmessage = (ev) => term.write(typeof ev.data === "string" ? ev.data : "");
+    // binary frames = terminal bytes; text frames = control-protocol JSON
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === "string") {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === "agent-state") pendingRef.current.get(msg.id)?.(msg.state);
+        } catch {
+          /* ignore malformed control frames */
+        }
+      } else {
+        term.write(new Uint8Array(ev.data as ArrayBuffer));
+      }
+    };
     ws.onclose = () => term.write("\r\n\x1b[33m[terminal disconnected — reload to reconnect]\x1b[0m\r\n");
 
     const sub = term.onData((data) => {
@@ -66,6 +102,30 @@ export function TerminalPane(props: {
     };
   }, []);
 
+  const [prefs, setPrefs] = usePrefs();
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const agent = resolveTool(AGENTS, prefs.agent, prefs.agentCustom, AGENTS[0]);
+  const editor = resolveTool(EDITORS, prefs.editor, prefs.editorCustom, EDITORS[0]);
+
+  // resume probe: does a fresh, directory-scoped conversation exist? (claude
+  // only — its transcripts are stored per working directory, so --continue is
+  // safe; other agents' "resume last" is global and could cross projects)
+  const probeResume = useCallback(() => {
+    if (agent.id !== "claude") {
+      setResumeFresh(false);
+      return;
+    }
+    fetch("/api/resume")
+      .then((r) => r.json())
+      .then((d) => setResumeFresh(Boolean(d.fresh)))
+      .catch(() => setResumeFresh(false));
+  }, [agent.id]);
+  useEffect(() => {
+    probeResume();
+    window.addEventListener("focus", probeResume);
+    return () => window.removeEventListener("focus", probeResume);
+  }, [probeResume]);
+
   function type(text: string, submit = true) {
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) {
@@ -74,15 +134,95 @@ export function TerminalPane(props: {
     }
   }
 
+  function queryState(agentCmd: string): Promise<PtyState> {
+    return new Promise((resolve) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return resolve("unknown");
+      const id = ++reqIdRef.current;
+      const timer = setTimeout(() => {
+        pendingRef.current.delete(id);
+        resolve("unknown");
+      }, 6000);
+      pendingRef.current.set(id, (state) => {
+        clearTimeout(timer);
+        pendingRef.current.delete(id);
+        resolve(state);
+      });
+      ws.send(JSON.stringify({ type: "agent-state", id, agentCmd }));
+    });
+  }
+
+  const noticeTimer = useRef<number | undefined>(undefined);
+  function notify(text: string) {
+    setNotice(text);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 8000);
+  }
+
+  /** Serialize actions: one state query + action at a time. */
+  function guarded(fn: () => Promise<void>) {
+    return async () => {
+      if (acting) return;
+      setActing(true);
+      try {
+        await fn();
+      } finally {
+        setActing(false);
+      }
+    };
+  }
+
+  const doLaunch = guarded(async () => {
+    const state = await queryState(agent.command);
+    if (state === "agent") return notify(`${agent.label} is already running — just talk to it`);
+    if (state === "busy") return notify("terminal is busy — finish or Ctrl+C what's running first");
+    if (state === "unknown") {
+      type(agent.command, false);
+      return notify("couldn't inspect the terminal — typed the command; press Enter yourself");
+    }
+    type(agent.command, true);
+  });
+
+  const resuming = resumeFresh && agent.id === "claude";
+  const sessionPhrase = props.welcome ? "new course" : "start session";
+  const sessionLabel = resuming
+    ? props.welcome
+      ? "resume onboarding"
+      : "resume session"
+    : sessionPhrase;
+
+  const doSession = guarded(async () => {
+    const state = await queryState(agent.command);
+    if (state === "agent") return void type(resuming ? "resume session" : sessionPhrase, true);
+    if (state === "busy") return notify("terminal is busy — finish or Ctrl+C what's running first");
+    if (state === "unknown") {
+      type(sessionPhrase, false);
+      return notify("couldn't inspect the terminal — typed the opener; press Enter inside your agent");
+    }
+    // idle: launch atomically, message already submitted
+    if (resuming) type(`${agent.command} -c "resume session"`, true);
+    else type(launchWithPrompt(agent, sessionPhrase), true);
+  });
+
+  const shellAction = (cmd: string, what: string) =>
+    guarded(async () => {
+      const state = await queryState(agent.command);
+      if (state === "idle") return void type(cmd, true);
+      if (state === "unknown") {
+        type(cmd, false);
+        return notify("couldn't inspect the terminal — press Enter to run it");
+      }
+      notify(
+        state === "agent"
+          ? `${agent.label} is running — exit it first, or ask it to ${what}`
+          : "terminal is busy — finish or Ctrl+C what's running first",
+      );
+    });
+
   // forward slashes + `;` chaining work in PowerShell and POSIX shells alike
   const checksCmd = props.selectedModuleId
     ? `cd "${props.repoRoot.replace(/\\/g, "/")}/curriculum/${props.selectedModuleId}/scaffold"; npm run check`
     : null;
-
-  const [prefs, setPrefs] = usePrefs();
-  const [prefsOpen, setPrefsOpen] = useState(false);
-  const agent = resolveTool(AGENTS, prefs.agent, prefs.agentCustom, AGENTS[0]);
-  const editor = resolveTool(EDITORS, prefs.editor, prefs.editorCustom, EDITORS[0]);
 
   return (
     <aside className="termpane">
@@ -90,29 +230,40 @@ export function TerminalPane(props: {
         <span className="term-title">tutor / terminal</span>
         <div className="term-actions">
           <button
-            onClick={() => type(agent.command)}
+            disabled={acting}
+            onClick={doLaunch}
             title={`Launch ${agent.label} — your tutor — in this repo (change agent via ⚙)`}
           >
             launch {agent.label}
           </button>
           {props.welcome ? (
             <button
-              onClick={() => type("new course", false)}
-              title="Types the onboarding opener into your agent — press Enter to start the interview that builds this repo's course"
+              disabled={acting}
+              onClick={doSession}
+              title={
+                resuming
+                  ? "A recent conversation exists — resumes it where it left off"
+                  : "Starts your agent with the onboarding opener already sent — the interview that builds this repo's course"
+              }
             >
-              new course
+              {sessionLabel}
             </button>
           ) : (
             <>
               <button
-                onClick={() => type("start session", false)}
-                title="Types the session opener into your agent — press Enter to run your recall quiz and continue the current module"
+                disabled={acting}
+                onClick={doSession}
+                title={
+                  resuming
+                    ? "A recent conversation exists — resumes it where it left off"
+                    : "Starts your agent with the session opener already sent (or types it in, if the tutor is running)"
+                }
               >
-                start session
+                {sessionLabel}
               </button>
               <button
-                disabled={!checksCmd}
-                onClick={() => checksCmd && type(checksCmd)}
+                disabled={!checksCmd || acting}
+                onClick={checksCmd ? shellAction(checksCmd, "run the checks") : undefined}
                 title="Run the selected module's checks"
               >
                 run checks
@@ -120,7 +271,8 @@ export function TerminalPane(props: {
             </>
           )}
           <button
-            onClick={() => type(`${editor.command} "${props.repoRoot}"`)}
+            disabled={acting}
+            onClick={shellAction(`${editor.command} "${props.repoRoot}"`, "open the editor")}
             title={`Open the repo in ${editor.label} — your real editor (change editor via ⚙)`}
           >
             edit
@@ -134,6 +286,11 @@ export function TerminalPane(props: {
             ⚙
           </button>
         </div>
+        {notice && (
+          <div className="term-notice" onClick={() => setNotice(null)}>
+            {notice}
+          </div>
+        )}
         {prefsOpen && <PrefsPopover prefs={prefs} setPrefs={setPrefs} />}
       </div>
       <div className="term-host" ref={hostRef} />

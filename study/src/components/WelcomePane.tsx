@@ -15,20 +15,18 @@ export function WelcomePane(props: { repoRoot: string }) {
 
         <ol className="welcome-steps">
           <li>
-            <b>Launch your tutor</b> in the terminal on the right — the{" "}
-            <span className="welcome-btn-ref">launch</span> button types the command for you
-            (claude by default; pick codex or another agent via{" "}
-            <span className="welcome-btn-ref">⚙</span>).
+            Click <span className="welcome-btn-ref">new course</span> — it starts your tutor
+            in the terminal on the right with the opener already sent (claude by default;
+            pick codex or another agent via <span className="welcome-btn-ref">⚙</span>).
           </li>
           <li>
-            Say <b>“new course”</b>. The tutor interviews you — topic, goals, background,
-            hours per week — then drafts your course arc and asks you to review it before
-            building anything.
+            <b>The interview begins.</b> Topic, goals, background, hours per week — then the
+            tutor drafts your course arc and asks you to review it before building anything.
           </li>
           <li>
             <b>That's it.</b> This page turns into your course the moment module 00 exists,
-            and every session after starts the same way: open the study, say
-            “start session”.
+            and every sitting after starts the same way: open the study, click{" "}
+            <span className="welcome-btn-ref">start session</span>.
           </li>
         </ol>
 
