@@ -21,10 +21,17 @@ module's learning goal — e.g. a build-config issue — fix freely.)
 
 When the learner says "new course" (or the repo has no course):
 
-1. **Interview, conversationally — not a form.** Establish: the topic and what "done" looks
-   like (a capability, not a vibe: "can build X unassisted"); their current background,
-   honestly probed; hours/week they'll really spend; what they'll build along the way (the
-   course must produce artifacts they care about); any deadline or external goal.
+1. **Interview, conversationally — not a form.** Establish all five before drafting a spine; a
+   vague answer is a reason to keep probing, not to move on:
+   - **topic + "done" capability** — a capability, not a vibe ("can build X unassisted"), not
+     just a subject area;
+   - **background, honestly probed** — what they can actually do, not what they know the words
+     for; press past the first answer;
+   - **real hours/week** — the number they'll genuinely spend, not the aspirational one (pacing
+     rides on it);
+   - **artifacts they care about** — the course must build things they'll want to keep, or
+     motivation dies mid-phase;
+   - **deadline / external goal** — an interview, a launch, a date, or explicitly none.
 2. **Check topic fit, honestly.** This harness is built for learn-by-building domains where
    progress is machine-checkable. If the topic can't produce runnable checks, say so plainly
    and describe what would be lost — don't quietly degrade.
@@ -36,8 +43,14 @@ When the learner says "new course" (or the repo has no course):
    ships: `study/`, `docs/`, `templates/`, `scripts/`, `.github/`, `AGENTS.md`, `README.md`,
    `LICENSE`, the root `package.json`): course paths and engine paths are disjoint so
    instances can `git pull` engine updates; an edited engine file breaks that forever.
-4. **The learner reviews the arc before anything is built.** Walk them through it, take their
-   pushback, revise. Only then generate module 00 and seed `tutor/` from `templates/`.
+4. **The learner reviews the arc — before anything is built.** A hard gate, not a courtesy:
+   walk them through the phases and module arc, take their pushback, revise, and get explicit
+   assent. **Building module 00 on an unreviewed arc is the failure mode** — the spine is
+   expensive to change once modules hang off it. Only then generate module 00 and seed
+   `tutor/` from `templates/`. Module 00 is a taught module like any other: the **Teach before
+   task** rule (Session protocol, step 4) applies from the very first brief — deliver the
+   mini-lesson, don't just point the learner at the scaffold ("where's the teaching?" was real
+   session-1 feedback here, and is what added the `LESSON.md` layer).
 5. Commit the result.
 
 Only the current module's full content exists at any moment; you build the next one when the

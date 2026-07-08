@@ -7,6 +7,7 @@ import {
   isCourseState,
   newestJournalDate,
   newestQuizActivity,
+  checkSpine,
 } from "../doctor.mjs";
 
 test("parsePorcelain: modifications, renames, quoted paths, deletes, untracked", () => {
@@ -103,4 +104,20 @@ test("newestQuizActivity: grades and moves both count; newest wins; kind names i
   // no activity at all
   assert.deepEqual(newestQuizActivity({ items: [] }), { date: null, kind: null });
   assert.deepEqual(newestQuizActivity(null), { date: null, kind: null });
+});
+
+test("checkSpine: curriculum without COURSE.md fails; both-missing and present are ok", () => {
+  // curriculum/ but no COURSE.md — onboarding step 3 never completed or spine lost
+  const missing = checkSpine({ hasCurriculum: true, hasCourse: false });
+  assert.equal(missing.level, "fail");
+  assert.match(missing.message, /curriculum\/ exists but COURSE\.md is missing/);
+  assert.match(missing.message, /a course without its spine/);
+  // neither present — the not-yet-onboarded engine repo / fresh clone
+  assert.deepEqual(checkSpine({ hasCurriculum: false, hasCourse: false }), {
+    level: "ok",
+    message: "no COURSE.md and no curriculum/ — not onboarded yet",
+  });
+  // COURSE.md present — spine intact, with or without curriculum/ yet
+  assert.equal(checkSpine({ hasCurriculum: true, hasCourse: true }).level, "ok");
+  assert.equal(checkSpine({ hasCurriculum: false, hasCourse: true }).level, "ok");
 });

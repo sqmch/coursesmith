@@ -76,6 +76,31 @@ test("doctor CLI: clean instance exits 0; graded-but-unjournaled exits 1", () =>
   assert.match(bad.stdout, /✗ unjournaled: quiz items were graded on 2026-07-05/);
 });
 
+test("doctor CLI: a curriculum/ without COURSE.md fails the spine check; a spine present is ok", () => {
+  // curriculum/ exists but COURSE.md is missing — the spine was never written or lost
+  const spineless = mkInstance({
+    "curriculum/00-orientation/module.json": { id: "00-orientation" },
+    "tutor/progress.json": { learner, currentModule: null, modules: {} },
+    "tutor/quiz-bank.json": { items: [] },
+    "tutor/journal.md": "## 2026-06-02 — Session 1\ncovered the basics\n",
+  });
+  const bad = runCli("doctor.mjs", [spineless]);
+  assert.equal(bad.status, 1, bad.stdout + bad.stderr);
+  assert.match(bad.stdout, /✗ spine: curriculum\/ exists but COURSE\.md is missing/);
+
+  // add the spine and the same instance is clean
+  const whole = mkInstance({
+    "COURSE.md": "# COURSE.md — demo\n\n**Learner profile:** p.\n",
+    "curriculum/00-orientation/module.json": { id: "00-orientation" },
+    "tutor/progress.json": { learner, currentModule: null, modules: {} },
+    "tutor/quiz-bank.json": { items: [] },
+    "tutor/journal.md": "## 2026-06-02 — Session 1\ncovered the basics\n",
+  });
+  const good = runCli("doctor.mjs", [whole]);
+  assert.equal(good.status, 0, good.stdout + good.stderr);
+  assert.match(good.stdout, /✓ spine: COURSE\.md present/);
+});
+
 test("validate CLI: a valid module passes; a corrupted one exits 1", () => {
   const validModule = {
     id: "00-demo",

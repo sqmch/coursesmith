@@ -67,6 +67,22 @@ export const isCourseState = (rel) => {
   return p.startsWith("tutor/") || p.startsWith("curriculum/") || p === "COURSE.md";
 };
 
+// The spine check: a course (a curriculum/ with modules in it) must carry its
+// COURSE.md spine. Onboarding writes COURSE.md at step 3, before module 00 exists
+// (step 4), so a curriculum/ with no COURSE.md means onboarding step 3 never
+// finished or the file was lost. Both absent is the not-yet-onboarded engine repo
+// (or a fresh clone): fine. Pure over two booleans so it tests without a filesystem.
+export function checkSpine({ hasCurriculum, hasCourse }) {
+  if (hasCourse) return { level: "ok", message: "COURSE.md present" };
+  if (hasCurriculum)
+    return {
+      level: "fail",
+      message:
+        "curriculum/ exists but COURSE.md is missing — a course without its spine (onboarding step 3 never completed or the file was lost)",
+    };
+  return { level: "ok", message: "no COURSE.md and no curriculum/ — not onboarded yet" };
+}
+
 // Newest "## YYYY-MM-DD …" heading date in a journal, or null. Tolerant: a
 // range heading like "## 2026-06-15/16 — …" contributes its first date.
 export function newestJournalDate(text) {
@@ -115,6 +131,14 @@ function main() {
   // ---- results: one entry per check, worst level wins the exit code ----
   const results = [];
   const add = (id, level, message) => results.push({ id, level, message });
+
+  // 0) SPINE — a curriculum/ without its COURSE.md is a course missing its spine.
+  //    Runs regardless of tutor/: the spine can be lost independently of state.
+  const spine = checkSpine({
+    hasCurriculum: fs.existsSync(path.join(repoRoot, "curriculum")),
+    hasCourse: fs.existsSync(path.join(repoRoot, "COURSE.md")),
+  });
+  add("spine", spine.level, spine.message);
 
   if (!fs.existsSync(path.join(repoRoot, "tutor"))) {
     // Not an instance (or not onboarded yet) — nothing to check, and that's fine.

@@ -53,8 +53,8 @@ source course completes its final phase.
 - [ ] Install UX (`npx`-style bootstrap: named clone + remotes wired for updates — NOT a
       GitHub template repo, which severs history and breaks `git pull` updates), license,
       public launch
-- [ ] Tutor eval harness: grade tutoring transcripts, regression-test protocol changes
-      (built by learner #1 as their capstone — the protocol's only owned quality lever)
+- [ ] Tutor eval harness: grade tutoring transcripts, regression-test protocol changes — the
+      protocol's only owned quality lever under BYO agents
 
 ## Non-goals (recorded so they stay decided)
 

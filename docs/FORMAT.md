@@ -37,6 +37,69 @@ materials rules — `TODO(you)` gaps, no pasteable code in hint-2, no relative-t
 quiz questions, `lab.json` claims that resolve, self-contained visuals, and no committed
 node_modules.
 
+## COURSE.md — the course spine
+
+Generated at onboarding (`CLAUDE.md`, **Onboarding**) and reviewed by the learner before any
+module is built; the tutor reads it first at every session open. Unlike the files below it is
+**prose, not JSON** — it has no schema, and it is the one course file the tutor legitimately
+hand-authors and maintains. It sits at the repo root beside `CLAUDE.md` (an engine file, never
+edited): everything generic lives in the protocol, everything course-specific lives here, and
+the two occupy disjoint paths so an instance can `git pull` engine updates without a merge.
+`npm run doctor` fails a repo that has a `curriculum/` but no `COURSE.md` — a course without its
+spine.
+
+Required content blocks (instance #1's `COURSE.md` is the working reference):
+
+- **Course-specific tutor rules** — the targets the generic protocol can't know, read as tutor
+  instructions rather than docs: provider/SDK + env var; toolchain and how checks run; earned
+  check-design specifics; cost policy (cheapest adequate tier, budget); how guidance fades
+  across phases.
+- **Learner profile** — one line: who they are, hours/week, expected run length, start date.
+- **Phases, each with a goal and a boss-check** — a phase is a named arc whose **Goal** is
+  stated as a *capability* ("understand RAG well enough to build one and explain it in an
+  interview"), and whose **boss-check** is the gate the learner must genuinely pass to advance
+  (one per phase). The boss-check here is the *plan*; the learner's trip through it is recorded
+  in `progress.json`'s `bossCheck` (below).
+- **The module arc** — every module named under its phase, one line of scope + the artifact it
+  builds. Only the current module's full content is generated just-in-time; this arc is the
+  stable plan the generation follows.
+- **Pacing** — hours/week and a rough per-phase or whole-course estimate, so the arc stays
+  honest about scope.
+
+```markdown
+# COURSE.md — <course name>
+
+## Course-specific tutor rules
+- **Provider target:** <SDK + `ENV_VAR`> — generate scaffolds/checks against it.
+- **Toolchain:** <language>; checks are <runner>, run with `<command>`.
+- **Check-design specifics (earned here):** <e.g. inject deps across the checks/→scaffold
+  boundary; live-API checks auto-skip without a key and derive expected values from scaffold
+  constants>.
+- **Cost policy:** <cheapest adequate tier; print costs; per-phase / whole-course budget>.
+- **Guidance fade:** <early phases teach in conversation; later phases the learner reads
+  LESSON.md solo and the tutor only probes>.
+
+# The curriculum spine
+
+**Learner profile:** <who> · <hours/week> · <run length> · started <date>.
+
+## Phase 0 — <name> (<pacing>)
+**Goal:** <a capability, not a topic area>.
+- 0.1 <module scope> → <artifact it builds>
+- 0.2 <module scope> → <artifact>
+**Phase boss-check:** <the gate to advance>.
+
+## Phase 1 — <name> (<pacing>)
+**Goal:** …
+- 1.1 <module scope> → <artifact>
+**Phase boss-check:** …
+```
+
+Instances carry extra prose freely — instance #1 adds a learning-science principles table, a
+just-in-time design-stance note, and a cost-expectations section. That flavor is fine; the five
+blocks above are what the tutor protocol relies on a `COURSE.md` having — the doctor's spine
+check only enforces that the file exists.
+
 ## module.json
 
 ```jsonc
