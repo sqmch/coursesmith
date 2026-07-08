@@ -269,6 +269,58 @@ app.get("/api/resume", (_req, res) => {
   }
 });
 
+// ---------- session-close doctor: surface an unclosed session ----------
+// Shells out to the engine's scripts/doctor.mjs — the same script `npm run
+// doctor` runs — with --json, and hands its stable [{id,level,message}] array
+// to the study, which raises a topbar banner on any `fail`. The doctor is
+// READ-ONLY and so is this: the study still owns zero state. The script is
+// resolved next to the study package (in an instance the engine scripts live
+// in the same clone), while REPO_ROOT is passed as the doctor's *target* — so a
+// study pointed at another repo via --repo/HARNESS_REPO checks that repo with
+// the engine's own code. Exit 1 means "found problems", not an HTTP error, so we
+// parse stdout regardless of exit code; only a genuine spawn failure (the script
+// missing in an odd deployment) degrades to an empty result set — the UI then
+// shows nothing rather than nagging with an error state.
+const DOCTOR_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "doctor.mjs");
+let doctorSpawnWarned = false;
+app.get("/api/doctor", (_req, res) => {
+  const checkedAt = new Date().toISOString();
+  const degrade = (why: string) => {
+    if (!doctorSpawnWarned) {
+      // once per process: a 60s poll must not spam the console
+      console.warn(`[study] doctor unavailable (${why}) — /api/doctor degrades to no banner`);
+      doctorSpawnWarned = true;
+    }
+    res.json({ results: [], checkedAt, ok: false });
+  };
+  if (!fs.existsSync(DOCTOR_SCRIPT)) {
+    degrade(`no script at ${DOCTOR_SCRIPT}`);
+    return;
+  }
+  execFile(
+    process.execPath,
+    [DOCTOR_SCRIPT, REPO_ROOT, "--json"],
+    { timeout: 15000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+    (err, stdout) => {
+      // Parse first: a clean exit and a findings exit (code 1) both print the
+      // contract JSON. A parse failure means the process never produced it
+      // (ENOENT, crash, timeout) — that, and only that, degrades.
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stdout);
+      } catch {
+        degrade(err ? String(err) : "doctor produced no JSON");
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        degrade("doctor JSON was not an array");
+        return;
+      }
+      res.json({ results: parsed, checkedAt });
+    },
+  );
+});
+
 // ---------- static (production build, if present) ----------
 const dist = path.join(__dirname, "..", "dist");
 if (fs.existsSync(dist)) {

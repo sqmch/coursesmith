@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -21,12 +21,22 @@ import {
  */
 type PtyState = "idle" | "agent" | "busy" | "unknown";
 
-export function TerminalPane(props: {
-  repoRoot: string;
-  selectedModuleId: string | null;
-  /** No course in the repo yet — swap module actions for onboarding ones. */
-  welcome?: boolean;
-}) {
+/** Imperative handle so the topbar's doctor banner can fire the *same*
+ *  state-aware session opener the terminal's own button uses — one PTY-safe
+ *  code path, never a second one that could type into the wrong program. */
+export interface TerminalHandle {
+  startSession: () => void;
+}
+
+export const TerminalPane = forwardRef<
+  TerminalHandle,
+  {
+    repoRoot: string;
+    selectedModuleId: string | null;
+    /** No course in the repo yet — swap module actions for onboarding ones. */
+    welcome?: boolean;
+  }
+>(function TerminalPane(props, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -204,6 +214,13 @@ export function TerminalPane(props: {
     else type(launchWithPrompt(agent, sessionPhrase), true);
   });
 
+  // The doctor banner reconciles by firing this exact opener. Keep a ref to the
+  // latest `doSession` (it's re-created each render by `guarded`) so the handle
+  // stays stable while always running the current closure.
+  const doSessionRef = useRef(doSession);
+  doSessionRef.current = doSession;
+  useImperativeHandle(ref, () => ({ startSession: () => void doSessionRef.current() }), []);
+
   const shellAction = (cmd: string, what: string) =>
     guarded(async () => {
       const state = await queryState(agent.command);
@@ -296,7 +313,7 @@ export function TerminalPane(props: {
       <div className="term-host" ref={hostRef} />
     </aside>
   );
-}
+});
 
 function PrefsPopover(props: { prefs: Prefs; setPrefs: (p: Prefs) => void }) {
   const { prefs, setPrefs } = props;

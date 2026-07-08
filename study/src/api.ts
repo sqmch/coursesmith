@@ -77,6 +77,28 @@ export async function fetchCourse(): Promise<Course> {
   return res.json();
 }
 
+/** One check from the session-close doctor (scripts/doctor.mjs --json contract). */
+export interface DoctorResult {
+  id: string;
+  level: "ok" | "warn" | "fail";
+  message: string;
+}
+export interface DoctorReport {
+  results: DoctorResult[];
+  /** ISO timestamp of when the server ran the doctor. */
+  checkedAt: string;
+  /** false when the doctor couldn't be spawned — the UI degrades to no banner. */
+  ok?: boolean;
+}
+
+/** Ask the server to run the doctor and report its findings. Never throws for
+ *  "found problems" — a non-empty `results` with `fail` entries is the signal. */
+export async function fetchDoctor(): Promise<DoctorReport> {
+  const res = await fetch("/api/doctor");
+  if (!res.ok) throw new Error(`doctor fetch failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchFile(path: string): Promise<string> {
   const res = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
   if (!res.ok) throw new Error(String(res.status));

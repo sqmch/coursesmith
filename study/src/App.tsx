@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchCourse, type Course } from "./api";
+import { fetchCourse, fetchDoctor, type Course, type DoctorReport } from "./api";
 import { Rail } from "./components/Rail";
 import { DocPane } from "./components/DocPane";
-import { TerminalPane } from "./components/TerminalPane";
+import { TerminalPane, type TerminalHandle } from "./components/TerminalPane";
 import { WelcomePane } from "./components/WelcomePane";
 import { LabOverlay } from "./lab/LabOverlay";
 import { buildEntries, type LabEntry } from "./lab/registry";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const DOCTOR_GLYPH: Record<string, string> = { ok: "✓", warn: "⚠", fail: "✗" };
 
 export default function App() {
   const [course, setCourse] = useState<Course | null>(null);
@@ -21,6 +22,12 @@ export default function App() {
   const [railW, setRailW] = useState(() => Number(localStorage.getItem("ck.railW")) || 290);
   const [termW, setTermW] = useState(() => Number(localStorage.getItem("ck.termW")) || 480);
   const drag = useRef<null | { which: "rail" | "term"; startX: number; startW: number }>(null);
+
+  // session-close doctor: a topbar banner when a session was left unclosed.
+  const termRef = useRef<TerminalHandle>(null);
+  const [doctor, setDoctor] = useState<DoctorReport | null>(null);
+  const [doctorDismissed, setDoctorDismissed] = useState(false);
+  const [doctorDetails, setDoctorDetails] = useState(false);
 
   const setSelectedId = useCallback((id: string) => {
     setSelectedIdRaw(id);
@@ -59,6 +66,27 @@ export default function App() {
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
   }, [isEmpty, load]);
+
+  // doctor: refresh like the course does — on focus + a slow poll (not a hot
+  // loop). A fetch failure degrades to null: the banner is a safety net, never
+  // a nag, so a missing endpoint just means no banner.
+  const loadDoctor = useCallback(async () => {
+    try {
+      setDoctor(await fetchDoctor());
+    } catch {
+      setDoctor(null);
+    }
+  }, []);
+  useEffect(() => {
+    loadDoctor();
+    const onFocus = () => loadDoctor();
+    window.addEventListener("focus", onFocus);
+    const t = setInterval(loadDoctor, 60000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(t);
+    };
+  }, [loadDoctor]);
 
   // ── pane resizing ──
   useEffect(() => {
@@ -107,6 +135,20 @@ export default function App() {
 
   const done = course?.modules.filter((m) => m.status === "complete").length ?? 0;
   const total = course?.modules.length ?? 0;
+
+  // Banner only for `fail` — warns stay quiet (this line is for a broken close,
+  // not noise). Summary: the single fail, or the count + the first one.
+  const doctorFails = useMemo(
+    () => doctor?.results.filter((r) => r.level === "fail") ?? [],
+    [doctor],
+  );
+  const doctorSummary =
+    doctorFails.length === 1
+      ? doctorFails[0].message
+      : doctorFails.length > 1
+        ? `${doctorFails.length} checks failing — ${doctorFails[0].message}`
+        : "";
+  const showDoctor = doctorFails.length > 0 && !doctorDismissed;
 
   // the instance's folder name IS the course's name (clones are named after
   // their course) — brand the shell with it instead of any hardcoded course
@@ -169,6 +211,52 @@ export default function App() {
         </div>
       </header>
 
+      {showDoctor && (
+        <div className="doctor-banner">
+          <div className="doctor-banner-bar">
+            <span className="doctor-banner-glyph">⚠</span>
+            <span className="doctor-banner-msg" title={doctorSummary}>
+              {doctorSummary}
+            </span>
+            <button
+              className="doctor-banner-action"
+              onClick={() => termRef.current?.startSession()}
+              title="Open a session that reconciles this — the same opener as the terminal's session button"
+            >
+              start session
+            </button>
+            {doctor && doctor.results.length > 0 && (
+              <button
+                className="doctor-banner-toggle"
+                onClick={() => setDoctorDetails((o) => !o)}
+                aria-expanded={doctorDetails}
+              >
+                {doctorDetails ? "hide" : "details"}
+              </button>
+            )}
+            <button
+              className="doctor-banner-dismiss"
+              onClick={() => setDoctorDismissed(true)}
+              aria-label="dismiss until reload"
+              title="Dismiss until reload"
+            >
+              ×
+            </button>
+          </div>
+          {doctorDetails && doctor && (
+            <ul className="doctor-banner-list">
+              {doctor.results.map((r) => (
+                <li key={r.id} className={`doctor-line doctor-line-${r.level}`}>
+                  <span className="doctor-line-glyph">{DOCTOR_GLYPH[r.level] ?? "•"}</span>
+                  <span className="doctor-line-id">{r.id}</span>
+                  <span className="doctor-line-msg">{r.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div
         className="workspace"
         style={{
@@ -193,6 +281,7 @@ export default function App() {
         )}
         <div className="gutter" onMouseDown={startDrag("term")} />
         <TerminalPane
+          ref={termRef}
           repoRoot={course?.repoRoot ?? ""}
           selectedModuleId={selectedId}
           welcome={isEmpty}
