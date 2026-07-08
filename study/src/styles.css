@@ -77,6 +77,39 @@ body {
 .lab-launch-mark { color: var(--ink-faint); margin-right: 3px; }
 .lab-launch:hover .lab-launch-mark { color: var(--ink-dim); }
 
+/* the record button — sibling to ◇ lab, opens the tutor-state overlay */
+.state-launch {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: all 140ms;
+}
+.state-launch:hover { color: var(--hi); border-color: var(--ink-faint); background: var(--bg-panel); }
+.state-launch-mark { color: var(--ink-faint); margin-right: 4px; }
+.state-launch:hover .state-launch-mark { color: var(--ink-dim); }
+
+/* the "N due" quiz chip — a recall nudge that deep-links to the record's quiz */
+.quiz-chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  border-radius: 99px;
+  padding: 4px 11px;
+  cursor: pointer;
+  transition: all 140ms;
+}
+.quiz-chip:hover { color: var(--hi); border-color: var(--ink-dim); background: var(--bg-panel); }
+.quiz-chip-n { color: var(--hi); font-weight: 600; margin-right: 3px; }
+
 .meter { display: flex; align-items: center; gap: 10px; }
 .meter-track {
   width: 140px;

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchCourse, fetchDoctor, type Course, type DoctorReport } from "./api";
+import { fetchCourse, fetchDoctor, fetchFile, type Course, type DoctorReport } from "./api";
 import { Rail } from "./components/Rail";
 import { DocPane } from "./components/DocPane";
 import { TerminalPane, type TerminalHandle } from "./components/TerminalPane";
 import { WelcomePane } from "./components/WelcomePane";
 import { LabOverlay } from "./lab/LabOverlay";
 import { buildEntries, type LabEntry } from "./lab/registry";
+import { StateOverlay, type StateTab } from "./state/StateOverlay";
+import { dueItems, parseQuizBank, todayISO, type QuizBank } from "./state/parse";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const DOCTOR_GLYPH: Record<string, string> = { ok: "✓", warn: "⚠", fail: "✗" };
@@ -18,6 +20,13 @@ export default function App() {
   const [labTarget, setLabTarget] = useState<{ entryKey: string; moduleId: string } | null>(
     null,
   );
+
+  // record overlay: the tutor's persistent state (quiz bank, journal, progress).
+  // The topbar chip and this overlay share one derivation of "due today".
+  const [stateOpen, setStateOpen] = useState(false);
+  const [stateTab, setStateTab] = useState<StateTab>("progress");
+  const [quizBank, setQuizBank] = useState<QuizBank | null>(null);
+  const today = todayISO();
 
   const [railW, setRailW] = useState(() => Number(localStorage.getItem("ck.railW")) || 290);
   const [termW, setTermW] = useState(() => Number(localStorage.getItem("ck.termW")) || 480);
@@ -88,6 +97,26 @@ export default function App() {
     };
   }, [loadDoctor]);
 
+  // quiz bank: powers the "N due" topbar chip. Same focus + slow-poll cadence as
+  // the doctor; a missing/unreadable bank degrades to null → the chip hides.
+  const loadQuiz = useCallback(async () => {
+    try {
+      setQuizBank(parseQuizBank(await fetchFile("tutor/quiz-bank.json")));
+    } catch {
+      setQuizBank(null);
+    }
+  }, []);
+  useEffect(() => {
+    loadQuiz();
+    const onFocus = () => loadQuiz();
+    window.addEventListener("focus", onFocus);
+    const t = setInterval(loadQuiz, 60000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(t);
+    };
+  }, [loadQuiz]);
+
   // ── pane resizing ──
   useEffect(() => {
     const move = (e: MouseEvent) => {
@@ -136,6 +165,13 @@ export default function App() {
   const done = course?.modules.filter((m) => m.status === "complete").length ?? 0;
   const total = course?.modules.length ?? 0;
 
+  // quiz items due today (same rule as scripts/quiz.mjs) — drives the chip
+  const dueCount = useMemo(() => dueItems(quizBank, today).length, [quizBank, today]);
+  const openState = useCallback((tab: StateTab) => {
+    setStateTab(tab);
+    setStateOpen(true);
+  }, []);
+
   // Banner only for `fail` — warns stay quiet (this line is for a broken close,
   // not noise). Summary: the single fail, or the count + the first one.
   const doctorFails = useMemo(
@@ -183,6 +219,24 @@ export default function App() {
           {repoName && <span className="wordmark-sub">/ study</span>}
         </div>
         <div className="topbar-right">
+          {dueCount > 0 && (
+            <button
+              className="quiz-chip"
+              onClick={() => openState("quiz")}
+              title={`${dueCount} quiz item${dueCount === 1 ? "" : "s"} due for recall — open your record`}
+            >
+              <span className="quiz-chip-n">{dueCount}</span> due
+            </button>
+          )}
+          {total > 0 && (
+            <button
+              className="state-launch"
+              onClick={() => setStateOpen(true)}
+              title="Open your record — the quiz bank, journal, and progress the tutor keeps in this repo"
+            >
+              <span className="state-launch-mark">≡</span> record
+            </button>
+          )}
           {labEntries.length > 0 && (
             <button
               className="lab-launch"
@@ -288,7 +342,7 @@ export default function App() {
         />
       </div>
 
-      {/* overlay stays mounted (hidden when closed) so the lab keeps its state
+      {/* overlays stay mounted (hidden when closed) so they keep their state
           across open/close, and the workspace/terminal are never disrupted */}
       <LabOverlay
         open={labOpen}
@@ -296,6 +350,14 @@ export default function App() {
         modules={course?.modules ?? []}
         currentModule={currentModule}
         target={labTarget}
+      />
+      <StateOverlay
+        open={stateOpen}
+        onClose={() => setStateOpen(false)}
+        tab={stateTab}
+        onTab={setStateTab}
+        modules={course?.modules ?? []}
+        today={today}
       />
     </div>
   );

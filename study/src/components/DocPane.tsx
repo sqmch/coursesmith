@@ -1,43 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Marked } from "marked";
-import { markedHighlight } from "marked-highlight";
 import DOMPurify from "dompurify";
-import hljs from "highlight.js/lib/core";
-import typescript from "highlight.js/lib/languages/typescript";
-import javascript from "highlight.js/lib/languages/javascript";
-import json from "highlight.js/lib/languages/json";
-import bash from "highlight.js/lib/languages/bash";
-import http from "highlight.js/lib/languages/http";
 import { fetchFile, type ModuleInfo } from "../api";
+import { createMarkdown, escapeHtml } from "../markdown";
 import { buildEntries, visualSrc, type LabEntry } from "../lab/registry";
 
-hljs.registerLanguage("typescript", typescript);
-hljs.registerLanguage("javascript", javascript);
-hljs.registerLanguage("json", json);
-hljs.registerLanguage("bash", bash);
-hljs.registerLanguage("http", http);
-
-const LANG_ALIASES: Record<string, string> = { jsonc: "json", sh: "bash", shell: "bash", ts: "typescript", js: "javascript" };
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-const md = new Marked(
-  markedHighlight({
-    langPrefix: "hljs language-",
-    highlight(code, lang) {
-      const l = LANG_ALIASES[lang] ?? lang;
-      if (l && hljs.getLanguage(l)) {
-        try {
-          return hljs.highlight(code, { language: l }).value;
-        } catch {
-          /* fall through to plain */
-        }
-      }
-      return escapeHtml(code);
-    },
-  }),
-);
+// The shared study pipeline (highlight + sanitize), plus this pane's own
+// ```visual fence extension — kept on a private instance so `md.use` never
+// mutates the renderer the journal and tutor notes share.
+const md = createMarkdown();
 
 // A ```visual fence embeds a module-owned interactive right in the lesson:
 //   ```visual
