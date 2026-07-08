@@ -12,8 +12,11 @@ import {
   type PtyState,
   classifyProcesses,
   mergeModule,
+  hasRunnableCheck,
   guardRepoFile,
   guardVisualFile,
+  guardModuleDir,
+  parseCheckRun,
   mungeProjectDir,
   resumeFreshness,
 } from "./helpers";
@@ -81,8 +84,12 @@ app.get("/api/course", (_req, res) => {
         );
         // optional per-module math-lab config (generated from LESSON/BRIEF; see LAB.md)
         const lab = readJson(path.join(curriculumDir, d.name, "lab.json"));
+        // does the scaffold expose a runnable `check` script? gates the study's
+        // check-run lens (POST /api/checks/:id) — no script → affordance hidden
+        const scaffoldPkg = readJson(path.join(curriculumDir, d.name, "scaffold", "package.json"));
+        const hasChecks = hasRunnableCheck(scaffoldPkg);
         // merge + "completed"→"complete" normalization lives in helpers (unit-tested)
-        return mergeModule(manifest, p, docs, lab);
+        return mergeModule(manifest, p, docs, lab, hasChecks);
       })
       .filter(Boolean)
       .sort((a, b) => a!.id.localeCompare(b!.id));
@@ -111,6 +118,103 @@ app.get("/api/file", (req, res) => {
     return;
   }
   res.json({ path: rel, content: fs.readFileSync(abs, "utf8") });
+});
+
+// ---------- check-run lens: spawn a module's checks, parse the summary --------
+// A convenience lens, NOT a source of truth: the terminal remains the primary
+// way to run checks (the learner reads the real output there). This spawns the
+// module's own `npm run check` in its scaffold, 120s cap, and parses vitest's
+// summary into { total, passed, failed, failedNames?, outcome } for the study to
+// render. It writes NOTHING — the result lives only in the browser's ephemeral
+// React state and is gone on reload.
+//
+// Single-flight: one run at a time per server. A second concurrent request is
+// refused with 409 rather than queued — the study disables the affordance while
+// a run is in flight, so a 409 only happens on a genuine race (two tabs), and
+// refusing keeps this from ever fanning out into N parallel vitest processes.
+const CHECK_TIMEOUT_MS = 120_000;
+let checkInFlight = false;
+
+app.post("/api/checks/:moduleId", (req, res) => {
+  let startedRun = false; // only THIS request may clear the in-flight flag it set
+  try {
+    const { moduleId } = req.params as { moduleId: string };
+    const { scaffoldDir, ok } = guardModuleDir(REPO_ROOT, moduleId);
+    if (!ok) {
+      res.status(400).json({ error: "bad module id" });
+      return;
+    }
+
+    // A module with no runnable checks is a clean "no-checks", never a 500 —
+    // determined without spawning: no scaffold, or a scaffold whose package.json
+    // exposes no `check` script.
+    const pkgPath = path.join(scaffoldDir, "package.json");
+    if (!fs.existsSync(scaffoldDir) || !fs.existsSync(pkgPath)) {
+      res.json({
+        outcome: "no-checks",
+        total: 0,
+        passed: 0,
+        failed: 0,
+        detail: "this module has no scaffold to run checks in",
+      });
+      return;
+    }
+    let pkg: unknown = null;
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    } catch {
+      pkg = null;
+    }
+    if (!hasRunnableCheck(pkg)) {
+      res.json({
+        outcome: "no-checks",
+        total: 0,
+        passed: 0,
+        failed: 0,
+        detail: "this module's scaffold has no check script",
+      });
+      return;
+    }
+    // deps not installed → the run would just crash on a missing vitest; say the
+    // useful thing instead (and point back at the terminal, the real workflow)
+    if (!fs.existsSync(path.join(scaffoldDir, "node_modules"))) {
+      res.json({
+        outcome: "crash",
+        total: 0,
+        passed: 0,
+        failed: 0,
+        detail: "scaffold dependencies aren't installed — run `npm install` in the scaffold first",
+      });
+      return;
+    }
+
+    if (checkInFlight) {
+      res.status(409).json({ error: "a check run is already in progress", busy: true });
+      return;
+    }
+    checkInFlight = true;
+    startedRun = true;
+    execFile(
+      "npm",
+      ["run", "check"],
+      {
+        cwd: scaffoldDir,
+        timeout: CHECK_TIMEOUT_MS,
+        maxBuffer: 8 * 1024 * 1024,
+        windowsHide: true,
+        shell: true, // resolve npm/npm.cmd via the platform shell (args are fixed)
+      },
+      (err, stdout, stderr) => {
+        checkInFlight = false;
+        const e = err as (Error & { killed?: boolean; code?: string }) | null;
+        const timedOut = !!(e && (e.killed || e.code === "ETIMEDOUT"));
+        res.json(parseCheckRun(`${stdout ?? ""}\n${stderr ?? ""}`, timedOut));
+      },
+    );
+  } catch (err) {
+    if (startedRun) checkInFlight = false;
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 // ---------- course visuals: self-contained HTML, sandboxed + offline ----------

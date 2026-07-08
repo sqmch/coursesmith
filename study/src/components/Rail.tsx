@@ -1,12 +1,23 @@
 import { useMemo } from "react";
-import { type ModuleInfo } from "../api";
+import { type ModuleInfo, type CheckRunState } from "../api";
 import { moduleHasVisuals } from "../lab/registry";
+
+/** The subtle ring class the current module's node carries from an ephemeral
+ *  check run (running / pass / fail / crash). Empty string = no ring. */
+function checkRingClass(state: CheckRunState | undefined): string {
+  if (!state) return "";
+  if (state.phase === "running") return "check-running";
+  if (state.phase === "done" && state.summary) return `check-${state.summary.outcome}`;
+  return ""; // error phase or no summary → no ring
+}
 
 export function Rail(props: {
   modules: ModuleInfo[];
   currentModule: string | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** The current module's ephemeral check-run state — tints only that one node. */
+  currentCheck?: CheckRunState;
 }) {
   const phases = useMemo(() => {
     const byPhase = new Map<number, ModuleInfo[]>();
@@ -33,6 +44,7 @@ export function Rail(props: {
               const i = index++;
               const isCurrent = m.id === props.currentModule;
               const isSelected = m.id === props.selectedId;
+              const ring = isCurrent ? checkRingClass(props.currentCheck) : "";
               return (
                 <button
                   key={m.id}
@@ -45,7 +57,10 @@ export function Rail(props: {
                   style={{ animationDelay: `${i * 45}ms` }}
                   onClick={() => props.onSelect(m.id)}
                 >
-                  <span className={`node ${m.bossCheck ? "node-boss" : ""}`} aria-hidden>
+                  <span
+                    className={`node ${m.bossCheck ? "node-boss" : ""} ${ring}`.trim()}
+                    aria-hidden
+                  >
                     {m.status === "complete" ? "✓" : ""}
                   </span>
                   <span className="module-meta">

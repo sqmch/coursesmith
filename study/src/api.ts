@@ -100,6 +100,9 @@ export interface ModuleInfo {
   checkAttempts: number;
   docs: string[];
   lab?: ModuleLabConfig | null;
+  /** Whether the scaffold has a runnable `check` script — gates the run-checks
+   *  lens. Derived server-side; false when there's nothing to run. */
+  hasChecks?: boolean;
 }
 
 export interface Course {
@@ -142,4 +145,41 @@ export async function fetchFile(path: string): Promise<string> {
   if (!res.ok) throw new Error(String(res.status));
   const data = await res.json();
   return data.content as string;
+}
+
+// ── check-run lens ──────────────────────────────────────────────────────────
+// A convenience lens over `npm run check` — the terminal stays the primary way
+// to run checks. The result is EPHEMERAL: it lives in React state, is never
+// persisted, and is gone on reload.
+export type CheckOutcome = "pass" | "fail" | "crash" | "no-checks";
+export interface CheckSummary {
+  outcome: CheckOutcome;
+  total: number;
+  passed: number;
+  failed: number;
+  /** Present on `fail`: the "describe > test" path of each failing test. */
+  failedNames?: string[];
+  /** A plain one-liner for `crash`/`no-checks`. */
+  detail?: string;
+}
+/** The single-flight refusal shape (HTTP 409) — one run at a time per server. */
+export type CheckRunResponse = CheckSummary | { busy: true };
+
+/** One module's check-run status as the study holds it — ephemeral, keyed by
+ *  module id in App state. The study owns zero durable state: this lives only in
+ *  React and dies on reload. */
+export interface CheckRunState {
+  phase: "running" | "done" | "error";
+  summary?: CheckSummary;
+  error?: string;
+}
+
+/** Ask the server to run a module's checks once and summarize them. Returns
+ *  `{ busy: true }` when another run is already in flight (409). Throws only on
+ *  an unexpected transport/server error. */
+export async function runChecks(moduleId: string): Promise<CheckRunResponse> {
+  const res = await fetch(`/api/checks/${encodeURIComponent(moduleId)}`, { method: "POST" });
+  if (res.status === 409) return { busy: true };
+  if (!res.ok) throw new Error(`check run failed: ${res.status}`);
+  return res.json();
 }

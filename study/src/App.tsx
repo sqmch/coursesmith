@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchCourse, fetchDoctor, fetchFile, type Course, type DoctorReport } from "./api";
+import {
+  fetchCourse,
+  fetchDoctor,
+  fetchFile,
+  runChecks,
+  type Course,
+  type DoctorReport,
+  type CheckRunState,
+} from "./api";
 import { Rail } from "./components/Rail";
 import { DocPane } from "./components/DocPane";
 import { TerminalPane, type TerminalHandle } from "./components/TerminalPane";
@@ -19,6 +27,27 @@ export default function App() {
   const [selectedId, setSelectedIdRaw] = useState<string | null>(null);
   const [labOpen, setLabOpen] = useState(false);
   const [labTarget, setLabTarget] = useState<{ entryKey: string; moduleId: string } | null>(null);
+
+  // check-run lens: on-demand `npm run check` per module, results kept ONLY here
+  // (ephemeral, keyed by module id). The terminal stays the primary way to run
+  // checks; this is a convenience read-out that never persists anywhere.
+  const [checkRuns, setCheckRuns] = useState<Record<string, CheckRunState>>({});
+  const runCheck = useCallback(async (moduleId: string) => {
+    setCheckRuns((prev) => ({ ...prev, [moduleId]: { phase: "running" } }));
+    try {
+      const r = await runChecks(moduleId);
+      if ("busy" in r) {
+        setCheckRuns((prev) => ({
+          ...prev,
+          [moduleId]: { phase: "error", error: "another check run is in progress" },
+        }));
+        return;
+      }
+      setCheckRuns((prev) => ({ ...prev, [moduleId]: { phase: "done", summary: r } }));
+    } catch (e) {
+      setCheckRuns((prev) => ({ ...prev, [moduleId]: { phase: "error", error: String(e) } }));
+    }
+  }, []);
 
   // record overlay: the tutor's persistent state (quiz bank, journal, progress).
   // The topbar chip and this overlay share one derivation of "due today".
@@ -332,9 +361,15 @@ export default function App() {
               currentModule={course?.currentModule ?? null}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              currentCheck={currentModule ? checkRuns[currentModule] : undefined}
             />
             <div className="gutter" onMouseDown={startDrag("rail")} />
-            <DocPane module={selected} onOpenVisual={openLab} />
+            <DocPane
+              module={selected}
+              onOpenVisual={openLab}
+              checkState={selected ? checkRuns[selected.id] : undefined}
+              onRunChecks={runCheck}
+            />
           </>
         )}
         <div className="gutter" onMouseDown={startDrag("term")} />

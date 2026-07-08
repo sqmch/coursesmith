@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { fetchFile, type ModuleInfo } from "../api";
+import { fetchFile, type ModuleInfo, type CheckRunState } from "../api";
 import { createMarkdown, escapeHtml } from "../markdown";
 import { buildEntries, visualSrc, type LabEntry } from "../lab/registry";
 
@@ -43,19 +43,58 @@ export function DocPane(props: {
   module: ModuleInfo | null;
   /** Open the lab overlay directly on one of this module's visuals. */
   onOpenVisual: (entry: LabEntry, moduleId: string) => void;
+  /** This module's ephemeral check-run status (undefined = never run this session). */
+  checkState?: CheckRunState;
+  /** Trigger an on-demand `npm run check` for the given module. */
+  onRunChecks: (moduleId: string) => void;
 }) {
   const [doc, setDoc] = useState<string>("LESSON.md");
   const [html, setHtml] = useState<string>("");
   const [state, setState] = useState<"loading" | "ready" | "missing">("loading");
+  const [showFails, setShowFails] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
 
   const docs = props.module?.docs ?? [];
   const visuals = props.module ? buildEntries([props.module]) : [];
 
+  // ── check-run lens: derive the button's label/tint from the ephemeral state ──
+  const cs = props.checkState;
+  const checkRunning = cs?.phase === "running";
+  const summary = cs?.phase === "done" ? cs.summary : undefined;
+  const failNames = summary?.outcome === "fail" ? (summary.failedNames ?? []) : [];
+  const checkLabel = checkRunning
+    ? "running checks…"
+    : summary?.outcome === "pass"
+      ? `✓ ${summary.passed}/${summary.total}`
+      : summary?.outcome === "fail"
+        ? `✗ ${summary.failed}/${summary.total}`
+        : summary?.outcome === "crash"
+          ? "checks crashed"
+          : summary?.outcome === "no-checks"
+            ? "no checks found"
+            : "▷ run checks";
+  const checkClass = checkRunning
+    ? "running"
+    : summary?.outcome === "pass"
+      ? "pass"
+      : summary?.outcome === "fail"
+        ? "fail"
+        : summary // crash / no-checks
+          ? "warn"
+          : "idle";
+  // a plain one-liner for the states that aren't a clean pass/fail count
+  const checkNote =
+    cs?.phase === "error"
+      ? cs.error
+      : summary?.outcome === "crash" || summary?.outcome === "no-checks"
+        ? summary.detail
+        : undefined;
+
   useEffect(() => {
     if (props.module) {
       setDoc(props.module.docs.includes("LESSON.md") ? "LESSON.md" : props.module.docs[0]);
     }
+    setShowFails(false); // don't carry one module's open failing-tests list to the next
     // re-pick the default doc only when the module *id* changes — not when the
     // module object's identity churns on a background refetch, which would reset
     // the reader's current tab. (Same id-keyed pattern the lab components use.)
@@ -150,20 +189,64 @@ export function DocPane(props: {
               {DOC_LABELS[d] ?? d}
             </button>
           ))}
-          {visuals.length > 0 && (
-            <span className="doc-visual-chips">
-              {visuals.map((e) => (
+          <span className="doc-instruments">
+            {visuals.length > 0 && (
+              <span className="doc-visual-chips">
+                {visuals.map((e) => (
+                  <button
+                    key={e.key}
+                    className="doc-visual-chip"
+                    onClick={() => props.onOpenVisual(e, props.module!.id)}
+                    title={e.blurb ?? `Open "${e.title}" full-screen in the lab`}
+                  >
+                    ◇ {e.title.toLowerCase()}
+                  </button>
+                ))}
+              </span>
+            )}
+            {/* run-checks lens: quiet instrument, right of the ◇ chips. Hidden
+                entirely when the module has no runnable checks. The terminal
+                stays the primary way to run checks; this just reads the summary. */}
+            {props.module.hasChecks && (
+              <span className="doc-check">
                 <button
-                  key={e.key}
-                  className="doc-visual-chip"
-                  onClick={() => props.onOpenVisual(e, props.module!.id)}
-                  title={e.blurb ?? `Open "${e.title}" full-screen in the lab`}
+                  className={`doc-check-btn is-${checkClass}`}
+                  onClick={() => props.onRunChecks(props.module!.id)}
+                  disabled={checkRunning}
+                  aria-busy={checkRunning}
+                  title={
+                    summary || cs?.phase === "error"
+                      ? "Run this module's checks again"
+                      : "Run this module's checks once — the terminal remains the full output you read"
+                  }
                 >
-                  ◇ {e.title.toLowerCase()}
+                  {checkLabel}
                 </button>
-              ))}
-            </span>
-          )}
+                {failNames.length > 0 && (
+                  <button
+                    className="doc-check-toggle"
+                    onClick={() => setShowFails((v) => !v)}
+                    aria-expanded={showFails}
+                    title={showFails ? "Hide failing tests" : "Show failing tests"}
+                  >
+                    {showFails ? "hide" : "which"}
+                  </button>
+                )}
+                {checkNote && (
+                  <span className="doc-check-note" title={checkNote}>
+                    {checkNote}
+                  </span>
+                )}
+                {showFails && failNames.length > 0 && (
+                  <ul className="doc-check-fails">
+                    {failNames.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                )}
+              </span>
+            )}
+          </span>
         </nav>
       </div>
 

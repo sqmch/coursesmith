@@ -10,9 +10,12 @@ import {
   classifyProcesses,
   tokenStem,
   normalizeStatus,
+  hasRunnableCheck,
   mergeModule,
   guardRepoFile,
   guardVisualFile,
+  guardModuleDir,
+  parseCheckRun,
   mungeProjectDir,
   resumeFreshness,
 } from "../server/helpers";
@@ -132,6 +135,7 @@ describe("mergeModule", () => {
       { status: "completed", hintsUsed: ["hint-1"], checkAttempts: 3 },
       ["LESSON.md", "BRIEF.md"],
       { vectors: {} },
+      true,
     );
     expect(merged).toEqual({
       id: "01-embeddings",
@@ -142,23 +146,134 @@ describe("mergeModule", () => {
       checkAttempts: 3,
       docs: ["LESSON.md", "BRIEF.md"],
       lab: { vectors: {} },
+      hasChecks: true,
     });
   });
 
   test("missing progress → neutral defaults (not-started, no hints, 0 attempts)", () => {
-    const merged = mergeModule(manifest, undefined, [], null);
+    const merged = mergeModule(manifest, undefined, [], null, false);
     expect(merged.status).toBe("not-started");
     expect(merged.hintsUsed).toEqual([]);
     expect(merged.checkAttempts).toBe(0);
     expect(merged.lab).toBe(null);
     expect(merged.docs).toEqual([]);
+    expect(merged.hasChecks).toBe(false);
   });
 
   test("partial progress fills only the gaps it leaves", () => {
-    const merged = mergeModule(manifest, { status: "in-progress" }, ["LESSON.md"], null);
+    const merged = mergeModule(manifest, { status: "in-progress" }, ["LESSON.md"], null, true);
     expect(merged.status).toBe("in-progress");
     expect(merged.hintsUsed).toEqual([]); // absent → default
     expect(merged.checkAttempts).toBe(0); // absent → default
+    expect(merged.hasChecks).toBe(true); // passed straight through
+  });
+});
+
+describe("hasRunnableCheck", () => {
+  test("true only when scripts.check is a string", () => {
+    expect(hasRunnableCheck({ scripts: { check: "vitest run --dir ../checks" } })).toBe(true);
+  });
+
+  test("false when there is no check script (other scripts don't count)", () => {
+    expect(hasRunnableCheck({ scripts: { test: "vitest", ingest: "tsx src/cli.ts" } })).toBe(false);
+    expect(hasRunnableCheck({ scripts: {} })).toBe(false);
+    expect(hasRunnableCheck({})).toBe(false);
+  });
+
+  test("false for a non-string check and for non-object package shapes (hand-edit safe)", () => {
+    expect(hasRunnableCheck({ scripts: { check: 123 } })).toBe(false);
+    expect(hasRunnableCheck({ scripts: "nope" })).toBe(false);
+    expect(hasRunnableCheck(null)).toBe(false);
+    expect(hasRunnableCheck(undefined)).toBe(false);
+    expect(hasRunnableCheck("package.json contents")).toBe(false);
+  });
+});
+
+// ── check-run guard + summary parse ─────────────────────────────────────────
+// The guard resolves a module id to its scaffold dir and refuses anything that
+// isn't a single curriculum segment (the runner spawns a process there). The
+// parser turns vitest's real summary into the lens taxonomy.
+
+describe("guardModuleDir", () => {
+  const root = path.resolve("/tmp/course-repo");
+
+  test("a plain module id resolves to its scaffold dir", () => {
+    const g = guardModuleDir(root, "02-vector-store");
+    expect(g.ok).toBe(true);
+    expect(g.scaffoldDir).toBe(path.join(root, "curriculum", "02-vector-store", "scaffold"));
+  });
+
+  test("traversal, nesting, and absolute paths are refused (no escaping curriculum/)", () => {
+    expect(guardModuleDir(root, "../evil").ok).toBe(false);
+    expect(guardModuleDir(root, "02/../../etc").ok).toBe(false);
+    expect(guardModuleDir(root, "a/b").ok).toBe(false); // must be ONE segment
+    expect(guardModuleDir(root, path.resolve("/etc/passwd")).ok).toBe(false);
+  });
+
+  test("the curriculum dir itself (empty / '.') is not a module → refused", () => {
+    expect(guardModuleDir(root, "").ok).toBe(false);
+    expect(guardModuleDir(root, ".").ok).toBe(false);
+    expect(guardModuleDir(root, "..").ok).toBe(false);
+  });
+});
+
+describe("parseCheckRun", () => {
+  // Real vitest output carries ANSI colour; the parser strips it. These fixtures
+  // keep the escape codes so the test exercises that path (captured from module
+  // 02's actual run against a mid-build scaffold).
+  const failOut = [
+    " \x1b[31m❯\x1b[39m ../checks/vector-store.test.ts \x1b[2m(\x1b[22m10 tests | \x1b[31m10 failed\x1b[39m\x1b[2m)\x1b[22m",
+    "\x1b[31m\x1b[1m\x1b[7m FAIL \x1b[27m\x1b[22m\x1b[39m ../checks/vector-store.test.ts\x1b[2m > \x1b[22mchunk\x1b[2m > \x1b[22mmatches the LESSON §3 worked example (size 5, overlap 2)",
+    "\x1b[31m\x1b[1m\x1b[7m FAIL \x1b[27m\x1b[22m\x1b[39m ../checks/vector-store.test.ts\x1b[2m > \x1b[22mVectorStore\x1b[2m > \x1b[22mhonours k",
+    "\x1b[2m Test Files \x1b[22m \x1b[1m\x1b[31m1 failed\x1b[39m\x1b[22m\x1b[90m (1)\x1b[39m",
+    "\x1b[2m      Tests \x1b[22m \x1b[1m\x1b[31m10 failed\x1b[39m\x1b[22m\x1b[90m (10)\x1b[39m",
+  ].join("\n");
+
+  test("all-failed run: outcome fail, counts off the Tests line (not Test Files)", () => {
+    const s = parseCheckRun(failOut);
+    expect(s.outcome).toBe("fail");
+    expect(s.total).toBe(10);
+    expect(s.failed).toBe(10);
+    expect(s.passed).toBe(0);
+  });
+
+  test("failing names are the 'describe > test' path, file prefix + ANSI stripped", () => {
+    const s = parseCheckRun(failOut);
+    expect(s.failedNames).toEqual([
+      "chunk > matches the LESSON §3 worked example (size 5, overlap 2)",
+      "VectorStore > honours k",
+    ]);
+  });
+
+  test("mixed run reads both counts and the total in parens", () => {
+    const s = parseCheckRun("      Tests  1 failed | 5 passed (6)\n");
+    expect(s).toMatchObject({ outcome: "fail", total: 6, failed: 1, passed: 5 });
+  });
+
+  test("all-pass run: outcome pass, no failing names", () => {
+    const s = parseCheckRun(" ✓ ../checks/x.test.ts (6 tests) 4ms\n      Tests  6 passed (6)\n");
+    expect(s).toMatchObject({ outcome: "pass", total: 6, passed: 6, failed: 0 });
+    expect(s.failedNames).toBeUndefined();
+  });
+
+  test("no test files → no-checks (not a crash)", () => {
+    const s = parseCheckRun("No test files found, exiting with code 1");
+    expect(s.outcome).toBe("no-checks");
+    expect(s.total).toBe(0);
+  });
+
+  test("zero tests ran → no-checks", () => {
+    expect(parseCheckRun("      Tests  0 passed (0)\n").outcome).toBe("no-checks");
+  });
+
+  test("no summary at all → crash (the harness measured nothing)", () => {
+    const s = parseCheckRun("SyntaxError: Unexpected token\n    at file.ts:3\n");
+    expect(s.outcome).toBe("crash");
+    expect(s.total).toBe(0);
+  });
+
+  test("a timed-out run is a crash regardless of partial output", () => {
+    expect(parseCheckRun("...partial...\n      Tests  3 passed (3)\n", true).outcome).toBe("crash");
   });
 });
 

@@ -588,6 +588,35 @@ body.dragging .docpane {
   transform: rotate(45deg);
 }
 
+/* ── ephemeral check-run ring on the CURRENT module's node ──────────────────
+   The rail borrows the run-checks lens's state: a subtle tinted ring that shows
+   only on the current module, only after a run this session, and is gone on
+   reload. Declared after the status rules so it wins the shared box-shadow when
+   the current module is also in-progress. The static ring is the reduced-motion
+   fallback for the running pulse. */
+.node.check-running {
+  box-shadow: 0 0 0 3px var(--node-glow);
+  animation: nodepulse 1.5s ease-in-out infinite;
+}
+.node.check-pass {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 60%, transparent);
+}
+.node.check-fail {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 65%, transparent);
+}
+.node.check-crash {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 60%, transparent);
+}
+@keyframes nodepulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--node-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--node-glow);
+  }
+}
+
 .module-meta {
   display: flex;
   flex-direction: column;
@@ -686,12 +715,134 @@ body.dragging .docpane {
   align-items: center;
 }
 
+/* right-side instruments on the tab row: the ◇ visual chips and the run-checks
+   lens, grouped and pushed right together */
+.doc-instruments {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+}
+
 /* ◇ chips: this module's visuals, opening the lab directly on the right one */
 .doc-visual-chips {
   display: flex;
   gap: 8px;
-  margin-left: auto;
-  padding-bottom: 6px;
+}
+
+/* ── run-checks lens ───────────────────────────────────────────────────────
+   A quiet instrument: idle "▷ run checks", a running state, then a "✓ 10/10" /
+   "✗ 4/10" read-out with failing names one click away. Ephemeral — the terminal
+   remains the real output. Status tint rides only on the glyph+count, never the
+   chrome, matching the app's restraint. */
+.doc-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-check-btn {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 140ms,
+    border-color 140ms,
+    background 140ms;
+}
+.doc-check-btn:hover:not(:disabled) {
+  color: var(--hi);
+  border-color: var(--ink-faint);
+}
+.doc-check-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+/* the result tint lives on the label text (the count), leaving the border quiet */
+.doc-check-btn.is-running {
+  color: var(--ink);
+}
+.doc-check-btn.is-pass {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+}
+.doc-check-btn.is-fail {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+}
+.doc-check-btn.is-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+}
+
+.doc-check-toggle {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  background: transparent;
+  border: none;
+  padding: 2px 2px;
+  cursor: pointer;
+  transition: color 140ms;
+}
+.doc-check-toggle:hover {
+  color: var(--ink);
+}
+
+/* the plain one-liner for crash / no-checks / an errored request — truncated to
+   keep the row honest, full text on hover */
+.doc-check-note {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-dim);
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* failing test names, one click away — a small panel below the button */
+.doc-check-fails {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 8;
+  margin: 0;
+  padding: 8px 12px;
+  list-style: none;
+  min-width: 220px;
+  max-width: 420px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px var(--shadow);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.doc-check-fails li {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+.doc-check-fails li::before {
+  content: "✗ ";
+  color: var(--bad);
 }
 .doc-visual-chip {
   font-family: var(--sans);

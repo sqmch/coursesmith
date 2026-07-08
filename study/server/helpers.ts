@@ -78,6 +78,9 @@ export interface MergedModule {
   checkAttempts: number;
   docs: string[];
   lab: unknown;
+  /** Whether the scaffold carries a runnable `check` script — gates the study's
+   *  on-demand check-run lens (POST /api/checks/:id). Derived, never stored. */
+  hasChecks: boolean;
   [k: string]: unknown;
 }
 
@@ -88,6 +91,17 @@ export function normalizeStatus(rawStatus?: string): string {
   return raw === "completed" ? "complete" : raw;
 }
 
+/** Does a scaffold's parsed package.json expose a runnable `check` script? This
+ *  is exactly what `npm run check` (and the check-run lens) needs; a module
+ *  missing it has no runnable checks and the affordance stays hidden. Tolerates
+ *  any hand-edited shape — only a string `scripts.check` counts. */
+export function hasRunnableCheck(pkg: unknown): boolean {
+  if (!pkg || typeof pkg !== "object") return false;
+  const scripts = (pkg as { scripts?: unknown }).scripts;
+  if (!scripts || typeof scripts !== "object") return false;
+  return typeof (scripts as { check?: unknown }).check === "string";
+}
+
 /** Overlay a module's progress onto its manifest — the shape /api/course serves.
  *  Missing progress fields fall back to neutral defaults so a module the learner
  *  has not started still renders. */
@@ -96,6 +110,7 @@ export function mergeModule(
   progressEntry: RawModuleProgress | undefined,
   docs: string[],
   lab: unknown,
+  hasChecks: boolean,
 ): MergedModule {
   const p = progressEntry ?? {};
   return {
@@ -105,6 +120,7 @@ export function mergeModule(
     checkAttempts: p.checkAttempts ?? 0,
     docs,
     lab,
+    hasChecks,
   } as MergedModule;
 }
 
@@ -141,6 +157,22 @@ export function guardVisualFile(
   return { abs, visualsDir, ok };
 }
 
+/** Guard for POST /api/checks/:moduleId: the module id must be a single
+ *  curriculum segment (no separators, no `..`), so the resolved scaffold dir
+ *  stays directly under curriculum/. Same resolve-then-check discipline as the
+ *  file guards — the check runner spawns a process in this dir, so an escape
+ *  here would run `npm` somewhere it shouldn't. */
+export function guardModuleDir(
+  repoRoot: string,
+  moduleId: string,
+): { moduleDir: string; scaffoldDir: string; ok: boolean } {
+  const curriculum = path.resolve(repoRoot, "curriculum");
+  const moduleDir = path.resolve(curriculum, moduleId);
+  // exactly one level below curriculum/ — rejects "", ".", "..", "a/b", absolute paths
+  const ok = path.dirname(moduleDir) === curriculum && moduleDir !== curriculum;
+  return { moduleDir, scaffoldDir: path.join(moduleDir, "scaffold"), ok };
+}
+
 // ── resume-freshness ───────────────────────────────────────────────────────
 
 /** claude stores transcripts under ~/.claude/projects/<cwd with every
@@ -159,4 +191,84 @@ export function resumeFreshness(
   if (!newestMs) return { fresh: false, ageMinutes: null };
   const ageMinutes = Math.round((nowMs - newestMs) / 60000);
   return { fresh: ageMinutes <= freshHours * 60, ageMinutes };
+}
+
+// ── check-run summary ──────────────────────────────────────────────────────
+// The study's on-demand check lens (POST /api/checks/:id) spawns a module's
+// `npm run check` and parses vitest's summary into structured, EPHEMERAL data —
+// never written anywhere. This parse is the counterpart to scripts/qa-module.mjs's
+// `classify` (same proven regexes: the "Tests" summary line, "No test files
+// found"), narrowed to the taxonomy this lens shows the learner:
+//   pass       — tests ran, none failed
+//   fail       — tests ran, ≥1 failed (assertion OR thrown-in-test; both are a
+//                real failure the learner should see)
+//   no-checks  — nothing to run (empty checks dir / zero tests)
+//   crash      — the runner produced no test summary at all (import/syntax error,
+//                timeout): the harness measured nothing, and says so loudly
+// It is deliberately NOT imported from qa-module.mjs: that is a repo-root ESM
+// script outside the study's tsconfig (allowJs off), so a direct import would not
+// typecheck. Kept here, typed and unit-tested, it stays in the study workspace.
+
+export type CheckOutcome = "pass" | "fail" | "crash" | "no-checks";
+
+export interface CheckSummary {
+  outcome: CheckOutcome;
+  total: number;
+  passed: number;
+  failed: number;
+  /** Present on `fail`: the "describe > test" path of each failing test. */
+  failedNames?: string[];
+  /** A plain one-liner for `crash`/`no-checks` the UI can state verbatim. */
+  detail?: string;
+}
+
+// matching the ESC (\x1b) control char is unavoidable to strip terminal colour
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+/** Pull each failing test's "describe > test" path out of vitest's "Failed
+ *  Tests" section. Its ` FAIL  <file> > <describe> > <test>` lines are the
+ *  cleanest machine-readable form (no trailing duration); the leading file path
+ *  is stripped so the name reads as the test, not the file. */
+function extractFailedNames(out: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const line of out.split(/\r?\n/)) {
+    const m = line.match(/^\s*FAIL\s+(.+?)\s*$/);
+    if (!m) continue;
+    let name = m[1];
+    const gt = name.indexOf(" > ");
+    if (gt !== -1) name = name.slice(gt + 3); // drop "file.test.ts > "
+    if (!seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+/** Parse a completed `npm run check` run (combined stdout+stderr) into the lens
+ *  taxonomy. `timedOut` short-circuits to a crash — a killed run never printed a
+ *  trustworthy summary. Pure: no I/O, no clock. */
+export function parseCheckRun(output: string, timedOut = false): CheckSummary {
+  const zero = { total: 0, passed: 0, failed: 0 };
+  if (timedOut) return { outcome: "crash", ...zero, detail: "the check run timed out (over 120s)" };
+  const out = output.replace(ANSI, "");
+  if (/No test files? found/i.test(out))
+    return { outcome: "no-checks", ...zero, detail: "no test files found in this module" };
+  // the per-test summary line ("Tests  N failed | M passed (T)"), NOT "Test Files"
+  const m = out.match(/^\s*Tests\s+(.+)$/m);
+  if (!m)
+    return {
+      outcome: "crash",
+      ...zero,
+      detail: "the checks produced no test summary — they crashed before running",
+    };
+  const tail = m[1];
+  const failed = Number((tail.match(/(\d+)\s+failed/) || [])[1] || 0);
+  const passed = Number((tail.match(/(\d+)\s+passed/) || [])[1] || 0);
+  const total = Number((tail.match(/\((\d+)\)\s*$/) || [])[1] || failed + passed);
+  if (total === 0) return { outcome: "no-checks", ...zero, detail: "no tests ran" };
+  if (failed === 0) return { outcome: "pass", total, passed, failed };
+  return { outcome: "fail", total, passed, failed, failedNames: extractFailedNames(out) };
 }
