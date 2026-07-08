@@ -25,10 +25,12 @@ const RESULT_WORD: Record<string, string> = {
   rescheduled: "rescheduled (bookkeeping)",
 };
 
-function overdueLabel(over: number): string {
+// Recency, not debt: "due 24d ago" reads as when the item last came around, not
+// as a task the learner is failing to clear (only a tutor session can ask it).
+function dueLabel(over: number): string {
   if (over === 0) return "due today";
-  if (over > 0) return `${over}d overdue`;
-  return `in ${-over}d`;
+  if (over > 0) return `due ${over}d ago`;
+  return `due in ${-over}d`;
 }
 
 function History({ history }: { history?: QuizHistoryEntry[] }) {
@@ -67,7 +69,7 @@ function ItemRow({ row, upcoming }: { row: DueRow; upcoming?: boolean }) {
         <span className="q-line1-left">
           <span className="q-id">{item.id}</span>
           {item.module && <span className="q-mod">{item.module}</span>}
-          <span className={`q-when ${over > 0 ? "overdue" : ""}`}>{overdueLabel(over)}</span>
+          <span className="q-when">{dueLabel(over)}</span>
           {upcoming && item.due && <span className="q-due">{item.due}</span>}
         </span>
         <span className="q-line1-right">

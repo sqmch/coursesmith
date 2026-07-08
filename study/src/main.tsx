@@ -1,14 +1,9 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-// Fonts, bundled offline (no network at runtime). Three families, three roles:
-// Serif for reading surfaces, Sans for instrument labels, Mono for data. Only the
-// weights/subsets actually used are imported — see styles.css for the type roles.
-import "@fontsource/ibm-plex-serif/latin-400.css";
-import "@fontsource/ibm-plex-serif/latin-400-italic.css";
-import "@fontsource/ibm-plex-serif/latin-600.css";
-import "@fontsource/ibm-plex-serif/latin-ext-400.css";
-import "@fontsource/ibm-plex-serif/latin-ext-400-italic.css";
-import "@fontsource/ibm-plex-serif/latin-ext-600.css";
+// Fonts, bundled offline (no network at runtime). Two families, two roles: Sans
+// for humans (reading surfaces and instrument chrome alike — set apart by size and
+// leading, not typeface) and Mono for data. Only the weights/subsets actually used
+// are imported — see styles.css for the type roles.
 import "@fontsource/ibm-plex-sans/latin-400.css";
 import "@fontsource/ibm-plex-sans/latin-400-italic.css";
 import "@fontsource/ibm-plex-sans/latin-500.css";

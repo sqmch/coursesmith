@@ -69,10 +69,10 @@ web UI is a lens over the same files, never a dependency.
 Local only; owns zero state. A course rail with your progress, a typeset
 lesson/brief/quiz pane, an embedded terminal with the quick actions above, and **◇ lab** —
 interactive visualizations the tutor claims or generates per module, embedded in lessons
-and available full-screen. **≡ record** opens the course's memory: your quiz queue (a
-topbar chip counts what's due), the tutor's session journal, and per-module progress
-analytics — all read straight from the files the tutor keeps. A banner appears if a
-session was ever left half-closed.
+and available full-screen. **≡ record** opens the course's memory: your quiz queue (the
+record button itself counts what's due and jumps you there), the tutor's session journal,
+and per-module progress analytics — all read straight from the files the tutor keeps. A
+banner appears if a session was ever left half-closed.
 
 ## Updates, backup, more courses
 

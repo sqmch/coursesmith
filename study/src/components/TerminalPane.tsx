@@ -251,13 +251,6 @@ export const TerminalPane = forwardRef<
       <div className="term-header">
         <span className="term-title">tutor / terminal</span>
         <div className="term-actions">
-          <button
-            disabled={acting}
-            onClick={doLaunch}
-            title={`Launch ${agent.label} — your tutor — in this repo (change agent via ⚙)`}
-          >
-            launch {agent.label}
-          </button>
           {props.welcome ? (
             <button
               disabled={acting}
@@ -314,7 +307,15 @@ export const TerminalPane = forwardRef<
           </div>
         )}
         {prefsOpen && (
-          <PrefsPopover prefs={prefs} setPrefs={setPrefs} theme={theme} setTheme={setTheme} />
+          <PrefsPopover
+            prefs={prefs}
+            setPrefs={setPrefs}
+            theme={theme}
+            setTheme={setTheme}
+            agentLabel={agent.label}
+            onLaunch={doLaunch}
+            launchDisabled={acting}
+          />
         )}
       </div>
       <div className="term-host" ref={hostRef} />
@@ -333,8 +334,13 @@ function PrefsPopover(props: {
   setPrefs: (p: Prefs) => void;
   theme: Theme;
   setTheme: (t: Theme) => void;
+  agentLabel: string;
+  /** The terminal's state-aware bare-launch action (same guarded/queryState
+   *  path the header button used to fire) — relocated here as a secondary row. */
+  onLaunch: () => void;
+  launchDisabled: boolean;
 }) {
-  const { prefs, setPrefs, theme, setTheme } = props;
+  const { prefs, setPrefs, theme, setTheme, agentLabel, onLaunch, launchDisabled } = props;
   const row = (
     kind: "agent" | "editor",
     choices: ToolChoice[],
@@ -369,6 +375,17 @@ function PrefsPopover(props: {
   return (
     <div className="term-prefs">
       {row("agent", AGENTS, prefs.agent, prefs.agentCustom, "command, e.g. aider")}
+      <div className="term-prefs-launch">
+        <button
+          type="button"
+          className="term-prefs-launch-btn"
+          disabled={launchDisabled}
+          onClick={onLaunch}
+          title={`Launch ${agentLabel} in this repo with nothing typed — a bare prompt to talk to directly (the session button is the usual way in)`}
+        >
+          launch {agentLabel} without a prompt
+        </button>
+      </div>
       {row("editor", EDITORS, prefs.editor, prefs.editorCustom, "command, e.g. subl")}
       <div className="term-prefs-theme">
         <span id="prefs-theme-label">theme</span>

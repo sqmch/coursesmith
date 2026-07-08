@@ -217,36 +217,42 @@ export default function App() {
           {repoName && <span className="wordmark-sub">/ study</span>}
         </div>
         <div className="topbar-right">
-          {dueCount > 0 && (
-            <button
-              className="quiz-chip"
-              onClick={() => openState("quiz")}
-              title={`${dueCount} quiz item${dueCount === 1 ? "" : "s"} due for recall — open your record`}
-            >
-              <span className="quiz-chip-n">{dueCount}</span> due
-            </button>
-          )}
-          {total > 0 && (
-            <button
-              className="state-launch"
-              onClick={() => setStateOpen(true)}
-              title="Open your record — the quiz bank, journal, and progress the tutor keeps in this repo"
-            >
-              <span className="state-launch-mark">≡</span> record
-            </button>
-          )}
-          {labEntries.length > 0 && (
-            <button
-              className="lab-launch"
-              onClick={() => {
-                setLabTarget(null);
-                setLabOpen(true);
-              }}
-              title="Open the lab — this course's interactive visualizations"
-            >
-              <span className="lab-launch-mark">◇</span> lab
-            </button>
-          )}
+          {/* the two overlay launchers, grouped; the meter sits apart (below) */}
+          <div className="launchers">
+            {total > 0 && (
+              <button
+                className={dueCount > 0 ? "state-launch has-due" : "state-launch"}
+                // the "N due" count lives ON this button now: when something's
+                // due it deep-links to the quiz tab, otherwise it just opens the
+                // record on whichever tab was last shown
+                onClick={() => (dueCount > 0 ? openState("quiz") : setStateOpen(true))}
+                title={
+                  dueCount > 0
+                    ? `${dueCount} quiz item${dueCount === 1 ? "" : "s"} due for recall — open your record's quiz queue`
+                    : "Open your record — the quiz bank, journal, and progress the tutor keeps in this repo"
+                }
+              >
+                <span className="state-launch-mark">≡</span> record
+                {dueCount > 0 && (
+                  <span className="state-launch-due">
+                    · <span className="state-launch-due-n">{dueCount}</span> due
+                  </span>
+                )}
+              </button>
+            )}
+            {labEntries.length > 0 && (
+              <button
+                className="lab-launch"
+                onClick={() => {
+                  setLabTarget(null);
+                  setLabOpen(true);
+                }}
+                title="Open the lab — this course's interactive visualizations"
+              >
+                <span className="lab-launch-mark">◇</span> lab
+              </button>
+            )}
+          </div>
           {total > 0 && (
             <div className="meter" title={`${done} of ${total} modules complete`}>
               <div className="meter-track">

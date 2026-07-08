@@ -1,11 +1,12 @@
-/* ── the study — neutral, two-theme, three type roles ──────────────────────
+/* ── the study — neutral, two-theme, two type roles ────────────────────────
    Two grayscale palettes over one token set. :root carries the DARK palette (the
    app's native theme); the LIGHT palette re-declares the same tokens under two
    selectors — the explicit ⚙ toggle (data-theme) and the OS default (media). No
-   accent colour — hierarchy is carried by three faces (serif for reading, sans
-   for instrument labels, mono for data), plus size, weight, and space. Restrained
-   status tints ride only on ✓ ⚠ ✗ glyphs, never on chrome. The terminal body
-   stays dark in both themes.
+   accent colour — hierarchy is carried by two faces (sans for humans, mono for
+   data) plus size, weight, and space. Reading surfaces (lesson/journal/notes/quiz
+   prose) and instrument chrome are the *same* sans, kept distinct by a larger size
+   and relaxed leading, not by typeface. Restrained status tints ride only on
+   ✓ ⚠ ✗ glyphs, never on chrome. The terminal body stays dark in both themes.
 
    Static palettes, not light-dark(): that function resolves against a form
    control's UA color-scheme in Chromium, so every <button> in the app rendered
@@ -57,7 +58,6 @@
   --syn-num: #b6c5d4;
   --syn-type: #c2cbd4;
 
-  --serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
   --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -206,17 +206,23 @@ body {
   font-weight: 400;
 }
 
-/* instruments, right — grouped */
+/* instruments, right: the two overlay launchers grouped tight, the progress
+   meter set apart, so the cluster reads as two things (launchers · meter),
+   not a row of four peers */
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 22px;
+}
+.launchers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* shared instrument-button base: label in sans, quiet until hovered/focused */
 .lab-launch,
-.state-launch,
-.quiz-chip {
+.state-launch {
   font-family: var(--sans);
   font-size: 12px;
   font-weight: 500;
@@ -233,8 +239,7 @@ body {
     background 140ms;
 }
 .lab-launch:hover,
-.state-launch:hover,
-.quiz-chip:hover {
+.state-launch:hover {
   color: var(--hi);
   border-color: var(--ink-faint);
   background: var(--bg-raised);
@@ -249,17 +254,21 @@ body {
   color: var(--ink-dim);
 }
 
-/* the "N due" chip — the one instrument asking for attention, so it reads a
-   touch louder (a firmer border, a filled count) while staying neutral */
-.quiz-chip {
+/* the recall count, merged onto the record button. When items are due, record
+   both informs ("· N due") and deep-links to the quiz tab, so it reads a touch
+   louder — a firmer border — while staying neutral. The count is set in mono
+   like all data in the app. */
+.state-launch.has-due {
   border-color: var(--ink-faint);
-  border-radius: 99px;
 }
-.quiz-chip-n {
+.state-launch-due {
+  margin-left: 6px;
+  color: var(--ink-dim);
+}
+.state-launch-due-n {
   font-family: var(--mono);
   color: var(--hi);
   font-weight: 600;
-  margin-right: 4px;
 }
 
 .meter {
@@ -503,7 +512,11 @@ body.dragging .docpane {
 .phase-track::before {
   content: "";
   position: absolute;
-  left: 11px;
+  /* centered on the node glyphs: a row's content box starts at
+     phase-track padding (4px) + row border (1px) + row padding-left (2px) = 7px,
+     and the node is 15px wide, so its center sits at 7 + 7.5 = 14.5px from the
+     track's left edge. A 1px line at left:14 spans 14–15px → center 14.5px. */
+  left: 14px;
   top: 14px;
   bottom: 14px;
   width: 1px;
@@ -611,7 +624,7 @@ body.dragging .docpane {
   margin-top: 6px;
 }
 
-/* ── document pane — the reading surface (serif) ───────────────────────────*/
+/* ── document pane — the reading surface (sans, larger + relaxed) ──────────*/
 
 .docpane {
   overflow-y: auto;
@@ -755,13 +768,17 @@ body.dragging .docpane {
   color: var(--ink-dim);
 }
 
+/* the reading face is the same sans as the chrome, set apart by size + leading:
+   15.5px / 1.72 here vs 11–13.5px and ~1.4 leading on instruments. That size gap
+   (plus the normal 400 weight against the chrome's 500–600) is what makes this
+   read as "prose" and the rest as "panel", now that both share one typeface. */
 .doc {
   max-width: 116ch;
   margin: 0 auto;
   padding: 40px 48px 128px;
-  font-family: var(--serif);
-  font-size: 16px;
-  line-height: 1.75;
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.72;
   color: var(--ink);
   animation: fadein 250ms ease both;
 }
@@ -780,7 +797,7 @@ body.dragging .docpane {
 .doc h1,
 .doc h2,
 .doc h3 {
-  font-family: var(--serif);
+  font-family: var(--sans);
   color: var(--hi);
 }
 .doc h1 {
@@ -945,7 +962,7 @@ body.dragging .docpane {
   margin: 8px 0;
 }
 
-/* tables are data — sans, for scanning, inside the serif chapter */
+/* tables are data — tighter sans at chrome size, for scanning inside the prose */
 .doc table {
   border-collapse: collapse;
   margin: 20px 0;
@@ -1118,6 +1135,40 @@ body.dragging .docpane {
   grid-column: 2;
 }
 
+/* the bare-launch action, relocated here from the terminal header. A quiet
+   full-width row: the session button is the usual way in; this just opens the
+   agent with nothing typed. Fires the same guarded/queryState path as before. */
+.term-prefs-launch {
+  display: flex;
+}
+.term-prefs-launch-btn {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ink-dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 6px 8px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 140ms,
+    border-color 140ms,
+    background 140ms;
+}
+.term-prefs-launch-btn:hover:not(:disabled) {
+  color: var(--hi);
+  border-color: var(--ink-faint);
+  background: var(--bg-raised);
+}
+.term-prefs-launch-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* theme toggle — a small segmented control; system / light / dark */
 .term-prefs-theme {
   display: grid;
@@ -1201,7 +1252,7 @@ body.dragging .docpane {
   color: var(--ink-dim);
 }
 .boot-error h1 {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 600;
   color: var(--hi);
 }
@@ -1249,7 +1300,7 @@ body.dragging .docpane {
   margin-bottom: 20px;
 }
 .welcome h1 {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 30px;
   font-weight: 600;
   color: var(--hi);

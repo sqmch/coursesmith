@@ -252,10 +252,16 @@ export function ProgressView(props: {
                   </span>
                 </div>
                 {r.notes && isOpen && (
-                  <div
-                    className="pm-note doc"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(r.notes) }}
-                  />
+                  <div className="pm-note-wrap">
+                    <p className="pm-note-caption">
+                      The tutor&rsquo;s own calibration notes, written for its future sessions —
+                      shown here unedited.
+                    </p>
+                    <div
+                      className="pm-note doc"
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(r.notes) }}
+                    />
+                  </div>
                 )}
               </div>
             );

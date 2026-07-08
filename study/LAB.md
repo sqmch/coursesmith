@@ -41,12 +41,13 @@ current module directly.
   the PTY terminal and course selection survive open/close untouched.
 - **Additive & neutral.** Reuses the study's `:root` design tokens, so it inherits the app's
   two-theme neutral system for free — a paper-and-ink light theme and a near-black dark theme,
-  no accent colour, hierarchy from size/weight/space. It also inherits the three type roles:
+  no accent colour, hierarchy from size/weight/space. It also inherits the two type roles:
   the lab is an *instrument* surface, so labels are set in IBM Plex Sans and numeric readouts,
-  ids, and axis ticks in IBM Plex Mono (the reading serif is reserved for lesson/journal prose).
-  Hand-rolled SVG, thin lines, no colour of its own. The lab adds no dependencies (the engine
-  bundles the three IBM Plex families once, offline). Everything lab-specific lives under
-  `src/lab/`; the only edits outside it are a topbar button + `.lab-launch` style.
+  ids, and axis ticks in IBM Plex Mono (reading prose — lesson/journal — is the same sans, just
+  larger and more leaded). Hand-rolled SVG, thin lines, no colour of its own. The lab adds no
+  dependencies (the engine bundles the two IBM Plex families once, offline). Everything
+  lab-specific lives under `src/lab/`; the only edits outside it are a topbar button +
+  `.lab-launch` style.
 
 ## Anatomy
 
