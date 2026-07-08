@@ -12,6 +12,7 @@
     "typecheck": "npm run typecheck --workspace study",
     "doctor": "node scripts/doctor.mjs",
     "validate": "node scripts/validate.mjs",
+    "qa": "node scripts/qa-module.mjs",
     "quiz": "node scripts/quiz.mjs",
     "update": "node scripts/update.mjs"
   }

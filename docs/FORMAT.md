@@ -29,6 +29,14 @@ tutor/
   journal.md         ← append-only session log; the tutor's cross-session memory
 ```
 
+**Scaffold hygiene:** `scaffold/node_modules` must be gitignored — an installed dep tree is
+hundreds of MB and committing it bloats every clone. **QA a generated module mechanically with
+`npm run qa`** (`scripts/qa-module.mjs`, the entry point for the sealed-reference ritual): it
+runs the reference all-green → stripped-scaffold red-*on-assertions* check and lints the earned
+materials rules — `TODO(you)` gaps, no pasteable code in hint-2, no relative-timing checks, 4–8
+quiz questions, `lab.json` claims that resolve, self-contained visuals, and no committed
+node_modules.
+
 ## module.json
 
 ```jsonc

@@ -122,8 +122,13 @@ When the learner completes a module, generate the next one per the `COURSE.md` s
 **QA before handover (non-negotiable):** before the learner sees a module, write a sealed
 reference solution, run the checks against it (must be all green), then strip it back to the
 scaffold and confirm the checks all fail *on assertions* (not on crashes). Delete the
-reference, then run `npm run validate` — the module's `module.json` and `lab.json` must pass
-the schema check. This discipline exists because it repeatedly caught real materials bugs.
+reference. `npm run qa -- <module-id> --reference <dir>` runs both halves for you — green
+against the reference, red-*on-assertions* against the stripped scaffold — and in the same pass
+lints the materials rules below and checks this module's `module.json`/`lab.json` against the
+schemas (the same validator `npm run validate` runs repo-wide). You still write and delete the
+reference; the harness does the running and the grep, so neither gets skipped.
+This discipline exists because, done by hand, it repeatedly leaked real materials bugs to the
+learner.
 
 **Check-design rules (learned the hard way):**
 - Grade observable behavior, never implementation details.
