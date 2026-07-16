@@ -51,7 +51,7 @@ export const TerminalPane = forwardRef<
   useEffect(() => {
     const host = hostRef.current!;
     const term = new Terminal({
-      fontFamily: '"IBM Plex Mono", monospace',
+      fontFamily: '"Geist Mono", monospace',
       fontSize: 13,
       cursorBlink: true,
       theme: {
@@ -253,6 +253,7 @@ export const TerminalPane = forwardRef<
         <div className="term-actions">
           {props.welcome ? (
             <button
+              className="term-primary"
               disabled={acting}
               onClick={doSession}
               title={
@@ -266,6 +267,7 @@ export const TerminalPane = forwardRef<
           ) : (
             <>
               <button
+                className="term-primary"
                 disabled={acting}
                 onClick={doSession}
                 title={

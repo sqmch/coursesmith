@@ -19,6 +19,7 @@ import { dueItems, parseQuizBank, todayISO, type QuizBank } from "./state/parse"
 import { readNum, readStr, writeStr } from "./storage";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const MIN_DOC = 380; // reading-pane width floor, incl. the two 5px gutters
 const DOCTOR_GLYPH: Record<string, string> = { ok: "✓", warn: "⚠", fail: "✗" };
 
 export default function App() {
@@ -59,6 +60,11 @@ export default function App() {
   const [railW, setRailW] = useState(() => readNum("study.railW", 290));
   const [termW, setTermW] = useState(() => readNum("study.termW", 480));
   const drag = useRef<null | { which: "rail" | "term"; startX: number; startW: number }>(null);
+  // live mirrors for the drag handler (subscribed once) and the fit effect
+  const railWRef = useRef(railW);
+  railWRef.current = railW;
+  const termWRef = useRef(termW);
+  termWRef.current = termW;
 
   // session-close doctor: a topbar banner when a session was left unclosed.
   const termRef = useRef<TerminalHandle>(null);
@@ -151,8 +157,14 @@ export default function App() {
       const d = drag.current;
       if (!d) return;
       const dx = e.clientX - d.startX;
-      if (d.which === "rail") setRailW(clamp(d.startW + dx, 220, 460));
-      else setTermW(clamp(d.startW - dx, 320, 940));
+      // cap against the window so a drag can never crush the reading pane
+      if (d.which === "rail") {
+        const max = Math.min(460, window.innerWidth - termWRef.current - MIN_DOC);
+        setRailW(clamp(d.startW + dx, 220, max));
+      } else {
+        const max = Math.min(940, window.innerWidth - railWRef.current - MIN_DOC);
+        setTermW(clamp(d.startW - dx, 320, max));
+      }
     };
     const up = () => {
       if (!drag.current) return;
@@ -169,6 +181,21 @@ export default function App() {
 
   useEffect(() => writeStr("study.railW", String(railW)), [railW]);
   useEffect(() => writeStr("study.termW", String(termW)), [termW]);
+
+  // fit-to-window: remembered pane widths can exceed a smaller window (or the
+  // user shrinks it live) — squeeze the terminal first, then the rail, so the
+  // reading pane keeps a usable width instead of silently collapsing to zero.
+  useEffect(() => {
+    const fit = () => {
+      const w = window.innerWidth;
+      const rail = clamp(Math.min(railWRef.current, w - 320 - MIN_DOC), 220, 460);
+      if (rail !== railWRef.current) setRailW(rail);
+      setTermW((t) => clamp(Math.min(t, w - rail - MIN_DOC), 320, 940));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
 
   const startDrag = (which: "rail" | "term") => (e: React.MouseEvent) => {
     drag.current = { which, startX: e.clientX, startW: which === "rail" ? railW : termW };
@@ -291,7 +318,10 @@ export default function App() {
                 />
               </div>
               <span className="meter-label">
-                {done}/{total} modules
+                <span className="meter-count">
+                  {done}/{total}
+                </span>{" "}
+                modules
               </span>
             </div>
           )}

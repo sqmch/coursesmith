@@ -1,11 +1,17 @@
 /* ── the study — neutral, two-theme, two type roles ────────────────────────
-   Two grayscale palettes over one token set. :root carries the DARK palette (the
+   Two graphite palettes over one token set. :root carries the DARK palette (the
    app's native theme); the LIGHT palette re-declares the same tokens under two
-   selectors — the explicit ⚙ toggle (data-theme) and the OS default (media). No
-   accent colour — hierarchy is carried by two faces (sans for humans, mono for
-   data) plus size, weight, and space. Reading surfaces (lesson/journal/notes/quiz
-   prose) and instrument chrome are the *same* sans, kept distinct by a larger size
-   and relaxed leading, not by typeface. Restrained status tints ride only on
+   selectors — the explicit ⚙ toggle (data-theme) and the OS default (media).
+   ONE accent — a quiet drafting blue — and it appears only where "where am I /
+   what's live" is the question: the active tab, the progress fill, the current
+   module's node, the due count, the primary session action, focus rings. It never
+   tints chrome, and it deliberately sits away from the ✓ ⚠ ✗ status hues so state
+   and wayfinding can't be confused. Two faces: Geist Sans for humans (prose and
+   chrome alike — the reading surface is set apart by size, weight, and leading,
+   not typeface), Geist Mono for data. The reading surface also sits on its own
+   "paper" ground
+   (--bg-read), a step lighter than the chrome in dark and a step brighter in
+   light, so the page reads as a page. Restrained status tints ride only on
    ✓ ⚠ ✗ glyphs, never on chrome. The terminal body stays dark in both themes.
 
    Static palettes, not light-dark(): that function resolves against a form
@@ -19,6 +25,7 @@
 
   /* backgrounds */
   --bg: #141517;
+  --bg-read: #18191d; /* the reading surface's "paper" — a step off the chrome */
   --bg-raised: #1a1c1f;
   --bg-panel: #212329;
   --bg-deep: #0e0f11; /* code/well ground; also "inverse of ink" for filled glyphs */
@@ -43,7 +50,10 @@
   --warn: #cbb478;
   --bad: #dd928c;
 
-  --focus: #d6dae0;
+  /* the one accent — wayfinding only (see header note) */
+  --accent: #8ab2dc;
+
+  --focus: #8ab2dc;
 
   /* one-offs kept out of component rules so both themes stay honest */
   --wash: rgba(255, 255, 255, 0.06); /* faint fill washes on the labs' SVG/bands */
@@ -58,8 +68,8 @@
   --syn-num: #b6c5d4;
   --syn-type: #c2cbd4;
 
-  --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: "Geist Sans", system-ui, -apple-system, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* LIGHT palette — a paper-and-ink mirror of the dark defaults. Applied when the
@@ -68,9 +78,10 @@
    so the terminal stays dark. Keep in sync with :root above. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f6f6f4;
-  --bg-raised: #efefec;
-  --bg-panel: #e7e7e2;
+  --bg: #f2f2ee;
+  --bg-read: #fcfcfa;
+  --bg-raised: #ebebe6;
+  --bg-panel: #e3e3dd;
   --bg-deep: #edece8;
   --hi: #0b0c0e;
   --ink: #1c1e21;
@@ -81,7 +92,8 @@
   --ok: #3f7350;
   --warn: #8a6a1c;
   --bad: #a2483f;
-  --focus: #2b2d30;
+  --accent: #35648f;
+  --focus: #35648f;
   --wash: rgba(0, 0, 0, 0.05);
   --wash-soft: rgba(0, 0, 0, 0.03);
   --node-glow: rgba(0, 0, 0, 0.08);
@@ -98,9 +110,10 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --bg: #f6f6f4;
-    --bg-raised: #efefec;
-    --bg-panel: #e7e7e2;
+    --bg: #f2f2ee;
+    --bg-read: #fcfcfa;
+    --bg-raised: #ebebe6;
+    --bg-panel: #e3e3dd;
     --bg-deep: #edece8;
     --hi: #0b0c0e;
     --ink: #1c1e21;
@@ -111,7 +124,8 @@
     --ok: #3f7350;
     --warn: #8a6a1c;
     --bad: #a2483f;
-    --focus: #2b2d30;
+    --accent: #35648f;
+    --focus: #35648f;
     --wash: rgba(0, 0, 0, 0.05);
     --wash-soft: rgba(0, 0, 0, 0.03);
     --node-glow: rgba(0, 0, 0, 0.08);
@@ -191,8 +205,9 @@ body {
   font-family: var(--sans);
   font-weight: 600;
   font-size: 15px;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   color: var(--hi);
+  white-space: nowrap;
 }
 .wordmark .brass {
   color: var(--ink-dim);
@@ -232,6 +247,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 5px 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 140ms,
@@ -267,7 +283,7 @@ body {
 }
 .state-launch-due-n {
   font-family: var(--mono);
-  color: var(--hi);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -285,7 +301,7 @@ body {
 }
 .meter-fill {
   height: 100%;
-  background: var(--ink-dim);
+  background: var(--accent);
   border-radius: 2px;
   transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -294,6 +310,27 @@ body {
   font-size: 11.5px;
   color: var(--ink-dim);
   letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+.meter-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+/* narrow windows: drop the meter's track (the count keeps the signal), then the
+   wordmark's suffix — the topbar compresses instead of clipping */
+@media (max-width: 1180px) {
+  .meter-track {
+    display: none;
+  }
+}
+@media (max-width: 860px) {
+  .wordmark-sub {
+    display: none;
+  }
+  .topbar-right {
+    gap: 14px;
+  }
 }
 
 /* ── session-close doctor banner ──────────────────────────────────────────
@@ -338,7 +375,8 @@ body {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 4px 12px;
+  padding: 5px 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 140ms,
@@ -447,14 +485,14 @@ body {
   transition: background 120ms;
 }
 .gutter:hover::after {
-  background: var(--ink-faint);
+  background: color-mix(in srgb, var(--accent) 60%, var(--line));
 }
 body.dragging {
   cursor: col-resize;
   user-select: none;
 }
 body.dragging .gutter::after {
-  background: var(--ink-dim);
+  background: var(--accent);
 }
 body.dragging .term-host,
 body.dragging .docpane {
@@ -513,12 +551,12 @@ body.dragging .docpane {
   content: "";
   position: absolute;
   /* centered on the node glyphs: a row's content box starts at
-     phase-track padding (4px) + row border (1px) + row padding-left (2px) = 7px,
-     and the node is 15px wide, so its center sits at 7 + 7.5 = 14.5px from the
-     track's left edge. A 1px line at left:14 spans 14–15px → center 14.5px. */
-  left: 14px;
-  top: 14px;
-  bottom: 14px;
+     phase-track padding (4px) + row border (1px) + row padding-left (8px) = 13px,
+     and the node is 15px wide, so its center sits at 13 + 7.5 = 20.5px from the
+     track's left edge. A 1px line at left:20 spans 20–21px → center 20.5px. */
+  left: 20px;
+  top: 17px;
+  bottom: 17px;
   width: 1px;
   background: var(--line-soft);
 }
@@ -526,11 +564,11 @@ body.dragging .docpane {
 .module-row {
   display: flex;
   align-items: flex-start;
-  gap: 11px;
+  gap: 12px;
   background: none;
   border: 1px solid transparent;
   border-radius: 7px;
-  padding: 7px 10px 7px 2px;
+  padding: 8px 10px 8px 8px;
   cursor: pointer;
   text-align: left;
   color: inherit;
@@ -564,7 +602,9 @@ body.dragging .docpane {
   flex: none;
   width: 15px;
   height: 15px;
-  margin-top: 3px;
+  /* title line box is 13.5px × 1.35 ≈ 18px tall → its center sits ~9px down;
+     the node's center lands at 2 + 7.5 = 9.5px, optically level with it */
+  margin-top: 2px;
   border-radius: 50%;
   border: 1.5px solid var(--ink-faint);
   background: var(--bg);
@@ -580,8 +620,8 @@ body.dragging .docpane {
   border-color: var(--ink);
 }
 .status-in-progress .node {
-  border-color: var(--hi);
-  box-shadow: 0 0 0 3px var(--node-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .node-boss {
   border-radius: 3px;
@@ -620,7 +660,7 @@ body.dragging .docpane {
 .module-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .module-title {
@@ -640,7 +680,7 @@ body.dragging .docpane {
   letter-spacing: 0.01em;
 }
 .module-row.current .module-sub {
-  color: var(--ink);
+  color: var(--accent);
 }
 
 .rail-foot {
@@ -658,7 +698,8 @@ body.dragging .docpane {
 .docpane {
   overflow-y: auto;
   min-width: 0;
-  background: var(--bg);
+  background: var(--bg-read);
+  container-type: inline-size; /* gutters compact against pane width, like the terminal */
 }
 .docpane-empty {
   display: grid;
@@ -672,7 +713,7 @@ body.dragging .docpane {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  background: color-mix(in srgb, var(--bg-read) 90%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line-soft);
   padding: 12px 48px 0;
@@ -690,9 +731,9 @@ body.dragging .docpane {
 
 .status-chip {
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 99px;
   border: 1px solid var(--line);
   letter-spacing: 0.06em;
@@ -700,8 +741,8 @@ body.dragging .docpane {
   color: var(--ink-dim);
 }
 .status-chip.status-in-progress {
-  color: var(--hi);
-  border-color: var(--ink-faint);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
 .status-chip.status-complete {
   color: var(--ok);
@@ -909,7 +950,7 @@ body.dragging .docpane {
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: var(--hi);
+  background: var(--accent);
 }
 
 .doc-state {
@@ -939,6 +980,16 @@ body.dragging .docpane {
   max-width: 72ch;
   margin-inline: auto;
 }
+/* a narrow reading pane keeps its measure by giving up gutter first */
+@container (max-width: 720px) {
+  .doc-header {
+    padding-left: 26px;
+    padding-right: 26px;
+  }
+  .doc {
+    padding: 32px 26px 96px;
+  }
+}
 @keyframes fadein {
   from {
     opacity: 0;
@@ -954,16 +1005,16 @@ body.dragging .docpane {
 .doc h1 {
   font-weight: 600;
   font-size: 30px;
-  line-height: 1.2;
+  line-height: 1.22;
   margin: 8px 0 22px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 .doc h2 {
   font-weight: 600;
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.3;
   margin: 44px 0 12px;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.015em;
 }
 .doc h3 {
   font-weight: 600;
@@ -983,12 +1034,12 @@ body.dragging .docpane {
 }
 .doc a {
   color: var(--ink);
-  text-decoration-color: var(--ink-faint);
+  text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent);
   text-underline-offset: 3px;
 }
 .doc a:hover {
-  color: var(--hi);
-  text-decoration-color: var(--ink);
+  color: var(--accent);
+  text-decoration-color: var(--accent);
 }
 
 /* code stays mono on a differentiated ground — the one place mono lives inside
@@ -1164,6 +1215,9 @@ body.dragging .docpane {
   flex-direction: column;
   min-width: 0;
   background: var(--term-bg);
+  /* the pane is a container: its header compacts against PANE width (the learner
+     drags these panes), which a viewport media query can't see */
+  container-type: inline-size;
 }
 
 .term-header {
@@ -1171,6 +1225,7 @@ body.dragging .docpane {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
@@ -1183,10 +1238,15 @@ body.dragging .docpane {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .term-actions {
   display: flex;
   gap: 8px;
+  flex: none;
 }
 .term-actions button {
   font-family: var(--sans);
@@ -1197,12 +1257,32 @@ body.dragging .docpane {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 4px 11px;
+  padding: 5px 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 140ms,
     border-color 140ms,
     background 140ms;
+}
+/* a narrow terminal pane: the buttons compact (never wrap their labels), and the
+   title is the first thing to give */
+@container (max-width: 480px) {
+  .term-actions button {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  .term-header {
+    padding: 8px 10px;
+  }
+}
+@container (max-width: 380px) {
+  .term-title {
+    display: none;
+  }
+  .term-header {
+    justify-content: flex-end;
+  }
 }
 .term-actions button:hover:not(:disabled) {
   color: var(--hi);
@@ -1212,6 +1292,17 @@ body.dragging .docpane {
 .term-actions button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+/* the session opener is the pane's one primary action — it alone carries the
+   accent, so the row reads "one door, three tools" instead of four peers */
+.term-actions button.term-primary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+.term-actions button.term-primary:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .term-gear {
@@ -1436,7 +1527,7 @@ body.dragging .docpane {
 
 .welcome {
   overflow-y: auto;
-  background: var(--bg-raised);
+  background: var(--bg-read);
   display: flex;
   justify-content: center;
 }
@@ -1456,8 +1547,8 @@ body.dragging .docpane {
   font-weight: 600;
   color: var(--hi);
   margin: 0 0 12px;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
 }
 .welcome-sub {
   font-family: var(--sans);
