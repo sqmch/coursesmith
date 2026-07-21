@@ -138,6 +138,85 @@
   }
 }
 
+/* ── the spatial scale — theme-independent, so it lives outside the palettes ──
+   The colour layer above was systematised from the start; geometry was not, and
+   an audit found 821 raw px literals against 3 spatial tokens: 27 distinct font
+   sizes on a 0.5px drift ladder (10, 10.5, 11, 11.5 …), every integer radius
+   from 2 to 10, and both 99px and 999px doing "pill". Values a step apart are
+   indistinguishable on screen but drift apart over time, and that drift is
+   exactly what reads as "roughness in the details" while the whole still looks
+   composed.
+
+   These steps are DERIVED from what the design already used — the biggest
+   cluster in each band became the step — so the sweep was mostly lossless
+   rather than a re-design. Rule for new work: pick a step. If nothing fits,
+   the scale is wrong and gains a step; a one-off literal is a bug unless a
+   comment says why (optical alignment against a specific line box is the one
+   honest reason, e.g. .node's margin-top). */
+:root {
+  /* spacing — 4px rhythm with half-steps where the chrome is genuinely tight */
+  --space-px: 1px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* radii — four steps and a pill, replacing every integer from 2 to 10 */
+  --radius-xs: 3px; /* inline code, tiny marks */
+  --radius-sm: 5px; /* buttons, chips, inputs */
+  --radius-md: 8px; /* cards, panels, popovers */
+  --radius-lg: 12px; /* overlay surfaces */
+  --radius-pill: 999px;
+
+  /* type — nine steps replacing 27 sizes. Named by rank, annotated by role;
+     --text-lg keeps 13.5px exactly because the rail's optical alignment is
+     computed against that line box. */
+  --text-2xs: 9px; /* axis ticks, superscript marks */
+  --text-xs: 10.5px; /* kickers, uppercase micro-labels */
+  --text-sm: 11px; /* meta lines, chips, secondary text */
+  --text-md: 12px; /* chrome default: buttons, tabs, terminal chrome */
+  --text-lg: 13.5px; /* UI titles — module title, panel headings */
+  --text-xl: 15px; /* reading prose */
+  --text-2xl: 17px; /* section headings */
+  --text-3xl: 21px; /* overlay titles */
+  --text-4xl: 26px; /* lab display numerals */
+
+  --leading-tight: 1.25; /* headings, single-line chrome */
+  --leading-snug: 1.35; /* the rail's title line box (see .node) */
+  --leading-normal: 1.5; /* dense body */
+  --leading-read: 1.65; /* the reading surface */
+
+  /* icons — the optical grid. Sized in these steps, never in raw px, so a
+     14px icon is the same 14px everywhere it appears. */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+
+  /* strokes — hair for rules and dividers, base for anything that reads as an
+     edge the eye should land on (node borders, focus rings, active tabs) */
+  --border-hair: 1px;
+  --border: 1.5px;
+
+  /* motion — two durations and one curve; reduced-motion is handled globally */
+  --dur-fast: 120ms;
+  --dur-slow: 200ms;
+  --ease: cubic-bezier(0.32, 0.08, 0.24, 1);
+
+  /* elevation — pairs with --shadow/--shadow-soft from the palettes */
+  --elev-popover: 0 6px 20px -4px var(--shadow);
+  --elev-overlay: 0 18px 48px -12px var(--shadow);
+}
+
 * {
   box-sizing: border-box;
 }
