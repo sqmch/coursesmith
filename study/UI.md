@@ -16,7 +16,7 @@ became the step — so applying them was mostly lossless rather than a re-design
 | ------- | ------------------------------------------------------------------- |
 | space   | `--space-px .5 1 1-5 2 2-5 3 3-5 4 5 6 7 8 10` → 1,2,4,6,8,10,12,14,16,20,24,28,32,40 |
 | radius  | `--radius-xs sm md lg pill` → 3, 5, 8, 12, 999                       |
-| type    | `--text-2xs xs sm md lg xl 2xl 3xl 4xl` → 9, 10.5, 11, 12, 13.5, 15, 17, 21, 26 |
+| type    | `--text-2xs xs sm md lg xl 2xl 3xl 4xl 5xl` → 9, 10.5, 11, 12, 13.5, 15, 17, 21, 26, 30 |
 | leading | `--leading-tight snug normal read` → 1.25, 1.35, 1.5, 1.65           |
 | icon    | `--icon-xs sm md lg` → 12, 14, 16, 20                                |
 | stroke  | `--border-hair` 1px, `--border` 1.5px                                |
@@ -25,7 +25,15 @@ became the step — so applying them was mostly lossless rather than a re-design
 
 **Pick a step.** If nothing fits, the scale is wrong and gains a step — don't reintroduce a
 literal. A raw px value is a bug unless a comment says why; optical alignment against a specific
-line box is the one honest reason (`.node`'s `margin-top` is the canonical example).
+line box is the one honest reason (`.node`'s `margin-top` is the canonical example). `--text-5xl`
+is what that rule looks like in practice: the sweep left two `30px` page headings stranded above
+the top step, and the answer was the missing step, not two justified literals.
+
+Not everything is spacing. Component measures (a 232px rail, a 760px reading measure), viewport
+breakpoints, hairlines, and anything inside an SVG `viewBox` answer to their content or their
+maths, not to a rhythm — snapping those would look systematic without being so. The convention
+applied here: snap when the nearest step is within 4px, leave it otherwise, and say why once per
+region rather than at every line.
 
 When snapping an off-scale value, take the nearest step; on a tie round **down**, because tight
 chrome spacing that grows is more noticeable than spacing that tightens. `1px` hairlines,
@@ -64,6 +72,12 @@ load-bearing: `<ModuleNode>` (the rail) and `<RecallMark>` (the quiz's ● ◐ �
 draw classed sub-elements — `.node-shape`, `.node-check`, `.node-ring`, `.recall-ring`,
 `.recall-fill` — whose **paint stays in the owning stylesheet**, so each region keeps expressing
 its own state through selectors. `ui.css` sets only their structure.
+
+Those structural rules are wrapped in `:where()`, which zeroes their specificity. `ui.css` loads
+*after* both region stylesheets, so a plain `.node-shape { fill: none }` default there outranked
+the region's real `fill` on source order alone — the phase-track line showed straight through
+every incomplete node, and the fix looked like "add a parent selector" rather than "a default
+should never have been competing". Keep new resets in `:where()` for the same reason.
 
 **Punctuation is not iconography.** `·` `…` `→` `←` `↑`, and `×` as a multiplication sign in the
 labs, stay as text.
