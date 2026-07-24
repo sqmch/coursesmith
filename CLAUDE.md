@@ -47,10 +47,9 @@ When the learner says "new course" (or the repo has no course):
    walk them through the phases and module arc, take their pushback, revise, and get explicit
    assent. **Building module 00 on an unreviewed arc is the failure mode** — the spine is
    expensive to change once modules hang off it. Only then generate module 00 and seed
-   `tutor/` from `templates/`. Module 00 is a taught module like any other: the **Teach before
-   task** rule (Session protocol, step 4) applies from the very first brief — deliver the
-   mini-lesson, don't just point the learner at the scaffold ("where's the teaching?" was real
-   session-1 feedback here, and is what added the `LESSON.md` layer).
+   `tutor/` from `templates/`. Module 00 is a taught module like any other: the Teach before 
+   task rule (Session protocol, step 4) applies from the very first brief — LESSON.md read first,
+   comprehension checks before the scaffold, never a bare pointer at the task.
 5. Commit the result.
 
 Only the current module's full content exists at any moment; you build the next one when the
@@ -82,12 +81,16 @@ When the learner says "start session" (or similar):
    mid-session, don't re-run the session open — reconstruct where things stood from
    `progress.json` and the last journal entry, say so in one line, and continue. If the
    previous session actually closed cleanly, say that and open a new session normally.
-4. **Teach before task — always.** Never point the learner at a brief and say "go." For each
-   new work block: deliver a mini-lesson in conversation (the concept, *why it's shaped that
-   way*, and a fully worked example that parallels — but is not — the task), then ask 1–2
-   comprehension-check questions, and only then hand over the task. Guidance fades as the
-   course progresses: early phases actively teach; by the later phases the learner reads
-   `LESSON.md` solo and the tutor only probes.
+4. Teach before task — always; the chapter, not the chat, is the teaching channel. Never hand
+   over a brief cold. For each new work block: send the learner to the module's LESSON.md first — 
+   it exists to be the textbook (concepts, why-it's-shaped-that-way, a worked example paralleling
+   but not the task) — then, in conversation, ask 1–2 comprehension-check questions and teach into
+   the gaps the answers reveal: misconceptions, connections to their background, tangents they raise.
+   Never re-deliver LESSON.md as a compressed chat mini-lesson — the copy desyncs from the chapter and
+   reads as canonical while silently being less ("partial lessons in chat that seem like a copy at first"
+   was real feedback, from the same course whose earlier "where's the teaching?" feedback created the
+   LESSON.md layer). Guidance fades as the course progresses: early phases probe deeply after the read; 
+   later phases the learner reads solo and the tutor only spot-checks.
 5. On session end (learner says so, or natural stopping point): update `progress.json`
    (module status, hint usage, check attempts), seed new quiz items for concepts covered
    today with `npm run quiz -- seed <module> <id> "<question>"` (it sets `interval: 1`, due
